@@ -1,0 +1,89 @@
+version: "3.8"
+
+services:
+  # Vector database for room descriptions and lore
+  chroma:
+    image: ghcr.io/chroma-core/chroma:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - adventure-network
+
+  # PostgreSQL for long-term memory storage
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=adventure_engine
+      - POSTGRES_USER=adventure
+      - POSTGRES_PASSWORD=development_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/app/models/world_schema.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - adventure-network
+
+  # Redis for session state and caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - adventure-network
+
+  # FastAPI backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql://adventure:development_password@postgres:5432/adventure_engine
+      - REDIS_URL=redis://redis:6379
+      - CHROMA_URL=http://chroma:8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+      - chroma
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - adventure-network
+
+  # Next.js frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8001
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - adventure-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
+
+networks:
+  adventure-network:
+    driver: bridge
