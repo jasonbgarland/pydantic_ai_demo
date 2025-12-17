@@ -25,7 +25,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/app/models/world_schema.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - adventure-network
 
