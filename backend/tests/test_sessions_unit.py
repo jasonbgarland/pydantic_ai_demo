@@ -11,7 +11,9 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         """Set up test fixtures."""
-        self.client = AsyncClient(app=app, base_url="http://test")
+        # Create HTTPX AsyncClient with app transport
+        from httpx import ASGITransport
+        self.client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
     async def asyncTearDown(self):
         """Clean up test fixtures."""
