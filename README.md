@@ -49,6 +49,55 @@ This project demonstrates:
 
    ```bash
    cp .env.example .env
+   # Edit .env and add your OpenAI API key:
+   # OPENAI_API_KEY=sk-your-key-here
+   ```
+
+3. **Setup vector database (one-time):**
+
+   ```bash
+   # This generates embeddings and creates the vector database
+   # Requires OpenAI API key - only run once per world content change
+   ./scripts/setup-vectors.sh
+   ```
+
+4. **Launch the application:**
+
+   ```bash
+   docker-compose up
+   ```
+
+The application will be available at:
+- **Frontend**: http://localhost:3000 (Next.js game UI)
+- **Backend API**: http://localhost:8001 (FastAPI docs)
+- **ChromaDB**: http://localhost:8000 (Vector database)
+
+## 🧠 Vector Database Strategy
+
+This project uses a **pre-generate and mount** approach for vector embeddings:
+
+### Why This Approach?
+- **Cost efficient**: Generate OpenAI embeddings once, reuse across environments
+- **Fast startup**: No API calls needed when launching Docker containers  
+- **Consistent data**: Same embeddings across development/production environments
+- **Git friendly**: World content is versioned, vector binaries are gitignored
+
+### Setup Process:
+1. **One-time setup**: `./scripts/setup-vectors.sh` generates embeddings locally
+2. **Mount data**: Docker mounts `./chroma_data` into ChromaDB container
+3. **Persist changes**: Vector data persists between container restarts
+
+### File Structure:
+```
+├── backend/app/world_data/     # ✅ World content (versioned)
+│   ├── rooms/*.md             
+│   └── items/*.md             
+├── chroma_data/               # ❌ Vector files (gitignored)
+│   ├── chroma.sqlite3         
+│   └── *.bin                  
+└── scripts/setup-vectors.sh   # ✅ Setup script (versioned)
+```
+   cp .env.example .env
    # Edit .env with your OpenAI API key
    ```
 

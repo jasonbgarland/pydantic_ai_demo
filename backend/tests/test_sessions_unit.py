@@ -1,9 +1,9 @@
 """Unit tests for game session management with mocked external dependencies."""
 import unittest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
 from httpx import AsyncClient
 
-from app.main import app, CharacterCreationRequest
+from app.main import app
 
 
 class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
@@ -21,7 +21,7 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
 
     @patch('app.main.redis_client')
     @patch('app.main.create_session')
-    async def test_start_game_creates_session_with_character(self, mock_create_session, mock_redis):
+    async def test_start_game_creates_session_with_character(self, mock_create_session, _mock_redis):
         """Test that starting a game creates a session with proper character data."""
         # Mock the session creation
         mock_session = {
@@ -37,15 +37,15 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         }
         mock_create_session.return_value = mock_session
 
-        response = await self.client.post("/game/start", 
+        response = await self.client.post("/game/start",
                                         json={"name": "TestWizard", "character_class": "wizard"})
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["game_id"], "test-game-123")
         self.assertEqual(data["session"]["character"]["name"], "TestWizard")
         self.assertEqual(data["session"]["character"]["character_class"], "wizard")
-        
+
         # Verify create_session was called with proper character data
         mock_create_session.assert_called_once()
         call_args = mock_create_session.call_args[0][0]  # First argument (character)
@@ -77,7 +77,7 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
 
         # Verify get_session was called with correct game_id
         mock_get_session.assert_called_once_with("test-game-123")
-        
+
         # Verify save_session was called with updated session
         mock_save_session.assert_called_once()
         saved_session = mock_save_session.call_args[0][1]  # Second argument (session)
@@ -96,12 +96,12 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         mock_get_session.return_value = mock_session
 
         response = await self.client.get("/game/test-game-123/state")
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["game_id"], "test-game-123")
         self.assertEqual(data["character"]["name"], "TestChar")
-        
+
         mock_get_session.assert_called_once_with("test-game-123")
 
     @patch('app.main.get_session')
@@ -110,7 +110,7 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         mock_get_session.return_value = None
 
         response = await self.client.get("/game/nonexistent-game/state")
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["error"], "session_not_found")
@@ -123,7 +123,7 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
 
         response = await self.client.post("/game/nonexistent-game/command",
                                         json={"command": "look"})
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["error"], "session_not_found")
@@ -131,16 +131,16 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
     async def test_character_classes_endpoint(self):
         """Test character classes endpoint returns proper data."""
         response = await self.client.get("/character/classes")
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("classes", data)
-        
+
         classes = data["classes"]
         self.assertIn("warrior", classes)
         self.assertIn("wizard", classes)
         self.assertIn("rogue", classes)
-        
+
         # Check warrior stats
         warrior = classes["warrior"]
         self.assertEqual(warrior["name"], "Warrior")

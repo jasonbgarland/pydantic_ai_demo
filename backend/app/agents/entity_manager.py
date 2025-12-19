@@ -66,7 +66,7 @@ if PYDANTIC_AI_AVAILABLE:
 if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
     # Create the EntityManager agent with OpenAI model from environment
     model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-    entity_agent = Agent(
+    ENTITY_AGENT = Agent(
         model=OpenAIModel(model_name),
         result_type=EntityInteraction,
         system_prompt=(
@@ -77,15 +77,10 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
             'Generate immersive responses that advance the narrative.'
         ),
         deps_type=EntityContext,
+        tools=[get_entity_info, check_entity_presence, update_entity_state],
     )
-    
-    # Register tools with the agent
-    if entity_agent:
-        entity_agent.tool(get_entity_info)
-        entity_agent.tool(check_entity_presence)
-        entity_agent.tool(update_entity_state)
 else:
-    entity_agent = None
+    ENTITY_AGENT = None
 
 
 class EntityManager:
@@ -100,9 +95,9 @@ class EntityManager:
 
     async def talk_to_entity(self, entity_name: str) -> Dict[str, Any]:
         """Handle conversation with an NPC or entity."""
-        if PYDANTIC_AI_AVAILABLE and entity_agent:
+        if PYDANTIC_AI_AVAILABLE and ENTITY_AGENT:
             try:
-                result = await entity_agent.run(
+                result = await ENTITY_AGENT.run(
                     f"Player wants to talk to: {entity_name}",
                     deps=self.context
                 )
@@ -126,9 +121,9 @@ class EntityManager:
 
     async def attack_entity(self, entity_name: str) -> Dict[str, Any]:
         """Handle combat with an entity."""
-        if PYDANTIC_AI_AVAILABLE and entity_agent:
+        if PYDANTIC_AI_AVAILABLE and ENTITY_AGENT:
             try:
-                result = await entity_agent.run(
+                result = await ENTITY_AGENT.run(
                     f"Player attacks: {entity_name}",
                     deps=self.context
                 )
@@ -152,9 +147,9 @@ class EntityManager:
 
     async def interact_with_object(self, object_name: str, action: str) -> Dict[str, Any]:
         """Handle interaction with environmental objects."""
-        if PYDANTIC_AI_AVAILABLE and entity_agent:
+        if PYDANTIC_AI_AVAILABLE and ENTITY_AGENT:
             try:
-                result = await entity_agent.run(
+                result = await ENTITY_AGENT.run(
                     f"Player wants to {action} the {object_name}",
                     deps=self.context
                 )

@@ -10,7 +10,8 @@ services:
       - CHROMA_SERVER_HOST=0.0.0.0
       - CHROMA_SERVER_HTTP_PORT=8000
     volumes:
-      - chroma_data:/chroma/chroma
+      # Mount local chroma_data folder (create with: python backend/seed_world_data.py)
+      - ./chroma_data:/chroma/chroma
     networks:
       - adventure-network
 
@@ -81,7 +82,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  chroma_data:
+  # chroma_data now uses bind mount: ./chroma_data
 
 networks:
   adventure-network:

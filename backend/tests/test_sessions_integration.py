@@ -21,14 +21,14 @@ class TestSessionIntegration(unittest.TestCase):
                                      json={"name": "IntegrationTester", "character_class": "warrior"},
                                      timeout=self.timeout)
         self.assertEqual(start_response.status_code, 200)
-        
+
         start_data = start_response.json()
         self.assertIn("game_id", start_data)
         self.assertIn("session", start_data)
-        
+
         game_id = start_data["game_id"]
         session = start_data["session"]
-        
+
         # Verify session structure
         self.assertEqual(session["game_id"], game_id)
         self.assertEqual(session["character"]["name"], "IntegrationTester")
@@ -42,7 +42,7 @@ class TestSessionIntegration(unittest.TestCase):
         state_response = requests.get(f"{self.base_url}/game/{game_id}/state",
                                     timeout=self.timeout)
         self.assertEqual(state_response.status_code, 200)
-        
+
         state_data = state_response.json()
         self.assertEqual(state_data["game_id"], game_id)
         self.assertEqual(state_data["turn_count"], 0)
@@ -52,18 +52,18 @@ class TestSessionIntegration(unittest.TestCase):
                                    json={"command": "look", "parameters": {"direction": "around"}},
                                    timeout=self.timeout)
         self.assertEqual(cmd_response.status_code, 200)
-        
+
         cmd_data = cmd_response.json()
         self.assertEqual(cmd_data["game_id"], game_id)
         self.assertEqual(cmd_data["turn"], 1)
         self.assertIn("response", cmd_data)
-        
+
         # Verify session was updated
         session_after_cmd = cmd_data["session"]
         self.assertEqual(session_after_cmd["turn_count"], 1)
         self.assertIn("history", session_after_cmd)
         self.assertEqual(len(session_after_cmd["history"]), 1)
-        
+
         history_entry = session_after_cmd["history"][0]
         self.assertEqual(history_entry["turn"], 1)
         self.assertEqual(history_entry["command"], "look")
@@ -74,15 +74,15 @@ class TestSessionIntegration(unittest.TestCase):
                                     json={"command": "go", "parameters": {"direction": "north"}},
                                     timeout=self.timeout)
         self.assertEqual(cmd2_response.status_code, 200)
-        
+
         cmd2_data = cmd2_response.json()
         self.assertEqual(cmd2_data["turn"], 2)
-        
+
         # Verify final state
         final_state_response = requests.get(f"{self.base_url}/game/{game_id}/state",
                                           timeout=self.timeout)
         self.assertEqual(final_state_response.status_code, 200)
-        
+
         final_state = final_state_response.json()
         self.assertEqual(final_state["turn_count"], 2)
         self.assertEqual(len(final_state["history"]), 2)
@@ -90,13 +90,13 @@ class TestSessionIntegration(unittest.TestCase):
     def test_character_creation_and_classes(self):
         """Test character creation and class information endpoints."""
         # Get available classes
-        classes_response = requests.get(f"{self.base_url}/character/classes", 
+        classes_response = requests.get(f"{self.base_url}/character/classes",
                                       timeout=self.timeout)
         self.assertEqual(classes_response.status_code, 200)
-        
+
         classes_data = classes_response.json()
         self.assertIn("classes", classes_data)
-        
+
         classes = classes_data["classes"]
         for class_key in ["warrior", "wizard", "rogue"]:
             self.assertIn(class_key, classes)
@@ -105,7 +105,7 @@ class TestSessionIntegration(unittest.TestCase):
             self.assertIn("description", class_info)
             self.assertIn("stats", class_info)
             self.assertIn("strengths", class_info)
-            
+
             # Verify stats structure
             stats = class_info["stats"]
             for stat in ["strength", "magic", "agility", "health", "stealth"]:
@@ -116,15 +116,15 @@ class TestSessionIntegration(unittest.TestCase):
         # Test character creation
         for class_name in ["warrior", "wizard", "rogue"]:
             char_response = requests.post(f"{self.base_url}/character/create",
-                                        json={"name": f"Test{class_name.capitalize()}", 
+                                        json={"name": f"Test{class_name.capitalize()}",
                                               "character_class": class_name},
                                         timeout=self.timeout)
             self.assertEqual(char_response.status_code, 200)
-            
+
             char_data = char_response.json()
             self.assertIn("character", char_data)
             self.assertIn("message", char_data)
-            
+
             character = char_data["character"]
             self.assertEqual(character["name"], f"Test{class_name.capitalize()}")
             self.assertEqual(character["character_class"], class_name)
@@ -143,7 +143,7 @@ class TestSessionIntegration(unittest.TestCase):
         nonexistent_state_response = requests.get(f"{self.base_url}/game/nonexistent-game-123/state",
                                                  timeout=self.timeout)
         self.assertEqual(nonexistent_state_response.status_code, 200)
-        
+
         error_data = nonexistent_state_response.json()
         self.assertEqual(error_data["error"], "session_not_found")
 
@@ -152,7 +152,7 @@ class TestSessionIntegration(unittest.TestCase):
                                                 json={"command": "look"},
                                                 timeout=self.timeout)
         self.assertEqual(nonexistent_cmd_response.status_code, 200)
-        
+
         cmd_error_data = nonexistent_cmd_response.json()
         self.assertEqual(cmd_error_data["error"], "session_not_found")
 
@@ -161,14 +161,14 @@ class TestSessionIntegration(unittest.TestCase):
         # Test health endpoint
         health_response = requests.get(f"{self.base_url}/health", timeout=self.timeout)
         self.assertEqual(health_response.status_code, 200)
-        
+
         health_data = health_response.json()
         self.assertEqual(health_data["status"], "healthy")
 
         # Test root endpoint
         root_response = requests.get(f"{self.base_url}/", timeout=self.timeout)
         self.assertEqual(root_response.status_code, 200)
-        
+
         root_data = root_response.json()
         self.assertIn("message", root_data)
         self.assertIn("status", root_data)

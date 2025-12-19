@@ -8,6 +8,12 @@
 .env.test.local
 .env.production.local
 
+# Vector Database Files (generated from seed script)
+chroma_data/
+backend/chroma_db/
+*.bin
+*.sqlite3
+
 # Dependencies
 node_modules/
 __pycache__/

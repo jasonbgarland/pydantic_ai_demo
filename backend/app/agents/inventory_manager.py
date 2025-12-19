@@ -62,7 +62,7 @@ if PYDANTIC_AI_AVAILABLE:
 if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
     # Create the InventoryManager agent with OpenAI model from environment
     model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-    inventory_agent = Agent(
+    INVENTORY_AGENT = Agent(
         model=OpenAIModel(model_name),
         result_type=ItemAction,
         system_prompt=(
@@ -73,15 +73,10 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
             'Generate responses that feel natural and immersive.'
         ),
         deps_type=InventoryContext,
+        tools=[check_item_availability, validate_inventory_space, get_item_properties],
     )
-    
-    # Register tools with the agent
-    if inventory_agent:
-        inventory_agent.tool(check_item_availability)
-        inventory_agent.tool(validate_inventory_space)
-        inventory_agent.tool(get_item_properties)
 else:
-    inventory_agent = None
+    INVENTORY_AGENT = None
 
 
 class InventoryManager:
@@ -98,9 +93,9 @@ class InventoryManager:
         """Handle picking up an item."""
         self.context.current_inventory = current_inventory.copy()
 
-        if PYDANTIC_AI_AVAILABLE and inventory_agent:
+        if PYDANTIC_AI_AVAILABLE and INVENTORY_AGENT:
             try:
-                result = await inventory_agent.run(
+                result = await INVENTORY_AGENT.run(
                     f"Player wants to pick up: {item_name}",
                     deps=self.context
                 )
@@ -125,9 +120,9 @@ class InventoryManager:
         """Handle dropping an item."""
         self.context.current_inventory = current_inventory.copy()
 
-        if PYDANTIC_AI_AVAILABLE and inventory_agent:
+        if PYDANTIC_AI_AVAILABLE and INVENTORY_AGENT:
             try:
-                result = await inventory_agent.run(
+                result = await INVENTORY_AGENT.run(
                     f"Player wants to drop: {item_name}",
                     deps=self.context
                 )
@@ -158,9 +153,9 @@ class InventoryManager:
         """Handle using an item."""
         self.context.current_inventory = current_inventory.copy()
 
-        if PYDANTIC_AI_AVAILABLE and inventory_agent:
+        if PYDANTIC_AI_AVAILABLE and INVENTORY_AGENT:
             try:
-                result = await inventory_agent.run(
+                result = await INVENTORY_AGENT.run(
                     f"Player wants to use: {item_name}",
                     deps=self.context
                 )
@@ -193,9 +188,9 @@ class InventoryManager:
         if item_name not in current_inventory:
             return f"You don't have a {item_name} to examine."
 
-        if PYDANTIC_AI_AVAILABLE and inventory_agent:
+        if PYDANTIC_AI_AVAILABLE and INVENTORY_AGENT:
             try:
-                result = await inventory_agent.run(
+                result = await INVENTORY_AGENT.run(
                     f"Describe examining {item_name} in detail",
                     deps=self.context
                 )

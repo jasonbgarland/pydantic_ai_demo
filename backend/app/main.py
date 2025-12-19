@@ -182,7 +182,7 @@ async def create_character(request: CharacterCreationRequest):
         character_class=request.character_class,
         stats=CLASS_STATS[request.character_class]
     )
-    
+
     # NOTE: Character saved to Redis session when game starts
     return {
         "character": character.model_dump(),

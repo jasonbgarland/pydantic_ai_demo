@@ -63,7 +63,7 @@ if PYDANTIC_AI_AVAILABLE:
 if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
     # Create the RoomDescriptor agent with OpenAI model from environment
     model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-    room_descriptor_agent = Agent(
+    ROOM_DESCRIPTOR_AGENT = Agent(
         model=OpenAIModel(model_name),
         result_type=str,
         system_prompt=(
@@ -74,14 +74,10 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
             'Match the tone of classic text adventures like Zork.'
         ),
         deps_type=RoomContext,
+        tools=[get_room_features, check_room_connections],
     )
-    
-    # Register tools with the agent
-    if room_descriptor_agent:
-        room_descriptor_agent.tool(get_room_features)
-        room_descriptor_agent.tool(check_room_connections)
 else:
-    room_descriptor_agent = None
+    ROOM_DESCRIPTOR_AGENT = None
 
 
 class RoomDescriptor:
@@ -100,9 +96,9 @@ class RoomDescriptor:
         if location not in self.context.visited_rooms:
             self.context.visited_rooms.append(location)
 
-        if PYDANTIC_AI_AVAILABLE and room_descriptor_agent:
+        if PYDANTIC_AI_AVAILABLE and ROOM_DESCRIPTOR_AGENT:
             try:
-                result = await room_descriptor_agent.run(
+                result = await ROOM_DESCRIPTOR_AGENT.run(
                     f"Describe the {location}",
                     deps=self.context
                 )
@@ -128,14 +124,14 @@ class RoomDescriptor:
         """Examine environmental details in a room."""
         self.context.current_location = location
 
-        if PYDANTIC_AI_AVAILABLE and room_descriptor_agent:
+        if PYDANTIC_AI_AVAILABLE and ROOM_DESCRIPTOR_AGENT:
             try:
                 if target:
                     prompt = f"Describe examining {target} in detail in the {location}"
                 else:
                     prompt = f"Provide a detailed examination of the {location}, noting all visible features"
 
-                result = await room_descriptor_agent.run(prompt, deps=self.context)
+                result = await ROOM_DESCRIPTOR_AGENT.run(prompt, deps=self.context)
                 return result.data
             except Exception:
                 # Fallback if AI call fails
