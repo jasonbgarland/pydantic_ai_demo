@@ -283,18 +283,17 @@ class AdventureNarrator:
                         game_state_updates={'location': new_location},
                         metadata={'direction': direction, 'from_location': current_location}
                     )
-                else:
-                    return GameResponse(
-                        agent="RoomDescriptor",
-                        narrative=f"You cannot go {direction} from here.",
-                        success=False,
-                        metadata={'direction': direction, 'blocked': True}
-                    )
-            except Exception as e:
+                return GameResponse(
+                    agent="RoomDescriptor",
+                    narrative=f"You cannot go {direction} from here.",
+                    success=False,
+                    metadata={'direction': direction, 'blocked': True}
+                )
+            except Exception as exc:
                 # Fallback if agent call fails
                 narrative = (
                     f"You head {direction} from {current_location}. "
-                    f"[Agent error: {str(e)}]"
+                    f"[Agent error: {str(exc)}]"
                 )
         else:
             # Fallback when no agent available
@@ -330,8 +329,8 @@ class AdventureNarrator:
                     narrative=description,
                     metadata={'examined': target, 'location': current_location}
                 )
-            except Exception as e:
-                narrative = f"You examine {target}. [Agent error: {str(e)}]"
+            except Exception as exc:
+                narrative = f"You examine {target}. [Agent error: {str(exc)}]"
         else:
             # Fallback when no agent available
             if target == 'around':
@@ -384,8 +383,8 @@ class AdventureNarrator:
                     game_state_updates=game_state_updates,
                     metadata={'item_action': action, 'target': target}
                 )
-            except Exception as e:
-                narrative = f"You {action} the {target}. [Agent error: {str(e)}]"
+            except Exception as exc:
+                narrative = f"You {action} the {target}. [Agent error: {str(exc)}]"
         else:
             # Fallback when no agent available
             narrative = (
@@ -400,7 +399,7 @@ class AdventureNarrator:
         )
 
     async def _handle_entity_interaction(
-        self, command: ParsedCommand, game_state: Dict[str, Any]
+        self, command: ParsedCommand, game_state: Dict[str, Any]  # pylint: disable=unused-argument
     ) -> GameResponse:
         """Handle entity interactions by delegating to EntityManager."""
         target = command.target or 'someone'
@@ -427,8 +426,8 @@ class AdventureNarrator:
                     game_state_updates=game_state_updates,
                     metadata={'entity_action': action, 'target': target}
                 )
-            except Exception as e:
-                narrative = f"You {action} {target}. [Agent error: {str(e)}]"
+            except Exception as exc:
+                narrative = f"You {action} {target}. [Agent error: {str(exc)}]"
         else:
             # Fallback when no agent available
             narrative = (
@@ -456,8 +455,8 @@ class AdventureNarrator:
                     narrative=narrative,
                     metadata={'inventory': inventory}
                 )
-            except Exception as e:
-                narrative = f"Inventory check failed. [Agent error: {str(e)}]"
+            except Exception as exc:
+                narrative = f"Inventory check failed. [Agent error: {str(exc)}]"
         else:
             # Fallback when no agent available
             if not inventory:

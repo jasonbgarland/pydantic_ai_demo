@@ -1,7 +1,7 @@
 """Unit tests for game session management with mocked external dependencies."""
 import unittest
 from unittest.mock import patch
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 
@@ -12,7 +12,6 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         """Set up test fixtures."""
         # Create HTTPX AsyncClient with app transport
-        from httpx import ASGITransport
         self.client = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
     async def asyncTearDown(self):

@@ -36,7 +36,7 @@ class EntityInteraction(BaseModel):
 
 # Tool functions (defined before agent creation)
 if PYDANTIC_AI_AVAILABLE:
-    async def get_entity_info(ctx: RunContext[EntityContext], entity_name: str) -> Dict[str, Any]:
+    async def get_entity_info(ctx: RunContext[EntityContext], entity_name: str) -> Dict[str, Any]:  # pylint: disable=unused-argument
         """Get information about an entity."""
         # TODO: Implement entity database lookup
         return {
@@ -77,7 +77,7 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
             'Generate immersive responses that advance the narrative.'
         ),
         deps_type=EntityContext,
-        tools=[get_entity_info, check_entity_presence, update_entity_state],
+        tools=[get_entity_info, check_entity_presence, update_entity_state],  # pylint: disable=possibly-used-before-assignment
     )
 else:
     ENTITY_AGENT = None
@@ -171,7 +171,7 @@ class EntityManager:
 
     async def get_entities_in_location(self) -> List[str]:
         """Get a list of entities present in the current location."""
-        return self.context.entities_in_room.get(self.context.current_location, [])
+        return self.context.entities_in_room.get(self.context.current_location, [])  # pylint: disable=no-member
 
     async def check_entity_availability(self, entity_name: str) -> bool:
         """Check if an entity is available for interaction."""

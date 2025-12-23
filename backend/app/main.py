@@ -12,6 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis.asyncio as aioredis
 
+# Import adventure agents
+from app.agents.adventure_narrator import AdventureNarrator
+from app.agents.room_descriptor import RoomDescriptor
+from app.agents.inventory_manager import InventoryManager
+from app.agents.entity_manager import EntityManager
+
 # Load environment variables
 load_dotenv()
 
@@ -91,6 +97,16 @@ app.add_middleware(
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
 
+# Initialize adventure agents
+room_descriptor = RoomDescriptor()
+inventory_manager = InventoryManager()
+entity_manager = EntityManager()
+adventure_narrator = AdventureNarrator(
+    room_descriptor=room_descriptor,
+    inventory_manager=inventory_manager,
+    entity_manager=entity_manager
+)
+
 
 async def create_session(character: dict) -> dict:
     """Create a new game session with the given character."""
@@ -101,9 +117,9 @@ async def create_session(character: dict) -> dict:
         "created_at": now,
         "updated_at": now,
         "character": character,
-        "location": "dungeon_entrance",
+        "location": "Cave Entrance",  # Start at the adventure's beginning
         "inventory": [],
-        "discovered": ["dungeon_entrance"],
+        "discovered": ["Cave Entrance"],
         "turn_count": 0,
         "temp_flags": {}
     }
@@ -153,7 +169,7 @@ async def get_character_classes():
                 "description": "Strong and resilient fighter, excels in combat and "
                               "physical challenges",
                 "stats": CLASS_STATS[CharacterClass.WARRIOR].model_dump(),
-                "strengths": ["Combat", "Breaking obstacles", "High health", 
+                "strengths": ["Combat", "Breaking obstacles", "High health",
                              "Intimidation"]
             },
             CharacterClass.WIZARD: {
@@ -218,36 +234,77 @@ async def start_game(request: CharacterCreationRequest):
 
 @app.post("/game/{game_id}/command")
 async def process_command(game_id: str, command: GameCommand):
-    """Process a command within an active game session.
+    """Process a command within an active game session using AI agents.
 
-    This is a lightweight stub that loads the Redis session, increments
-    the turn counter, appends the command to a simple history, and
-    returns a placeholder response. Later this will delegate to the
-    GameSessionManager and AdventureNarrator agents.
+    Loads the session, parses the command through AdventureNarrator,
+    coordinates with specialist agents (RoomDescriptor, InventoryManager, EntityManager),
+    and returns a rich narrative response with updated game state.
     """
     session = await get_session(game_id)
     if not session:
         return {"error": "session_not_found", "message": "Game session not found"}
 
-    # Basic command handling stub: increment turn count and record command
+    # Update session state
     session.setdefault("turn_count", 0)
     session["turn_count"] += 1
+    session.setdefault("location", "Cave Entrance")  # Use the actual starting location from world data
+    session.setdefault("inventory", [])
+    session.setdefault("visited_rooms", [])
+
+    # Record command in history
     history = session.setdefault("history", [])
     history.append({"turn": session["turn_count"], "command": command.command,
                    "params": command.parameters})
 
-    # Save the updated session
-    await save_session(game_id, session)
+    try:
+        # Parse command using AdventureNarrator
+        parsed_command = adventure_narrator.parse_command(command.command, command.parameters)
 
-    # Placeholder response
-    response_text = f"Received command '{command.command}'. (Command processing not yet implemented.)"
+        # Process command through agent coordination
+        game_response = await adventure_narrator.handle_command(
+            parsed_command=parsed_command,
+            game_state={
+                "location": session["location"],
+                "inventory": session["inventory"],
+                "visited_rooms": session["visited_rooms"],
+                "character": session.get("character", {}),
+                "turn_count": session["turn_count"]
+            }
+        )
 
-    return {
-        "game_id": game_id,
-        "turn": session["turn_count"],
-        "response": response_text,
-        "session": session
-    }
+        # Apply game state updates from agent response
+        if game_response.game_state_updates:
+            for key, value in game_response.game_state_updates.items():
+                session[key] = value
+
+        # Save the updated session
+        await save_session(game_id, session)
+
+        return {
+            "game_id": game_id,
+            "turn": session["turn_count"],
+            "response": game_response.narrative,
+            "agent": game_response.agent,
+            "success": game_response.success,
+            "session": session,
+            "metadata": game_response.metadata
+        }
+
+    except Exception as exc:
+        # Fallback for any processing errors
+        error_response = f"Error processing command '{command.command}': {str(exc)}"
+
+        await save_session(game_id, session)
+
+        return {
+            "game_id": game_id,
+            "turn": session["turn_count"],
+            "response": error_response,
+            "agent": "system",
+            "success": False,
+            "session": session,
+            "error": str(exc)
+        }
 
 
 @app.get("/game/{game_id}/state")

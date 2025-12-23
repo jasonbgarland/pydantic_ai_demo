@@ -219,23 +219,13 @@ def get_embeddings(texts: List[str]) -> List[List[float]]:
 
 def setup_chroma_client() -> chromadb.Client:
     """Initialize Chroma client with persistent storage."""
-    # Use the same Chroma instance as Docker Compose
-    chroma_url = os.getenv('CHROMA_URL', 'http://localhost:8000')
+    # Use persistent client that matches rag_tools.py
+    # Path: backend/app/chroma_data (same as used by the app)
+    chroma_path = Path(__file__).parent / "app" / "chroma_data"
     
-    try:
-        # Try to connect to Chroma server
-        client = chromadb.HttpClient(host=chroma_url.replace('http://', '').split(':')[0], 
-                                   port=int(chroma_url.split(':')[-1]))
-        # Test connection with a simple operation
-        client.list_collections()
-        print(f"Connected to Chroma server at {chroma_url}")
-        return client
-    except Exception as e:
-        print(f"Could not connect to Chroma server: {e}")
-        print("Using local persistent Chroma client")
-        # Fallback to local persistent client
-        client = chromadb.PersistentClient(path="../chroma_data")
-        return client
+    print(f"Using persistent Chroma client at: {chroma_path}")
+    client = chromadb.PersistentClient(path=str(chroma_path))
+    return client
 
 def seed_world_data():
     """Main function to seed world data into Chroma."""

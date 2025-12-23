@@ -1,8 +1,8 @@
 """RAG tools for querying the vector store in agent context."""
 import os
-import chromadb
 from typing import List, Dict, Any
 from pathlib import Path
+from app.utils.location_utils import normalize_location_name
 
 # Check if OpenAI is available and configured
 try:
@@ -18,39 +18,64 @@ except ImportError:
     USE_OPENAI_EMBEDDINGS = False
     openai_client = None
 
+# Try to import chromadb with error handling for numpy compatibility
+try:
+    import chromadb
+    CHROMADB_AVAILABLE = True
+except (ImportError, AttributeError) as e:
+    CHROMADB_AVAILABLE = False
+    print(f"Warning: ChromaDB not available: {e}")
+    chromadb = None
+
 def get_chroma_client():
     """Get a Chroma client connection."""
+    if not CHROMADB_AVAILABLE:
+        return None
+
     try:
-        # Try HTTP client first
-        client = chromadb.HttpClient(host="localhost", port=8000)
-        client.list_collections()  # Test connection
-        return client
-    except Exception:
-        # Fall back to persistent client - use the project root chroma_data
-        chroma_path = Path(__file__).parent.parent.parent.parent / "chroma_data"
+        # Use persistent client with shared volume
+        # In Docker: /app/chroma_data
+        # Locally: project_root/chroma_data
+        chroma_path = Path(__file__).parent.parent / "chroma_data"
+        if not chroma_path.exists():
+            # Try project root for local development
+            chroma_path = Path(__file__).parent.parent.parent.parent / "chroma_data"
+
         return chromadb.PersistentClient(path=str(chroma_path))
+    except Exception as e:
+        print(f"Warning: Could not connect to Chroma: {e}")
+        return None
 
 def query_world_lore(query: str, location: str = "", max_results: int = 3) -> List[str]:
     """
     Query the vector store for relevant world content.
-    
+
     Args:
         query: What to search for (e.g., "room description", "treasure")
-        location: Optional location context to focus results
+        location: Optional location context to focus results (accepts any format, will be normalized)
         max_results: Maximum number of results to return
-    
+
     Returns:
         List of relevant content strings
     """
+    if not CHROMADB_AVAILABLE:
+        return [f"You are in {location}." if location else "Looking around, you see a mysterious area."]
+
     try:
         client = get_chroma_client()
+        if not client:
+            return [f"You are in {location}." if location else "Looking around, you see a mysterious area."]
+
         collection = client.get_collection("adventure_world")
-        
+
+        # Normalize location name for metadata filtering
+        normalized_location = normalize_location_name(location) if location else ""
+
         # If location is specified, use metadata filtering for better results
-        if location:
+        if normalized_location:
             # First try location-specific content with metadata filter
-            where_filter = {"location": location}
-            
+            where_filter = {"location": normalized_location}
+
             # Use OpenAI embeddings if available
             if USE_OPENAI_EMBEDDINGS and openai_client:
                 try:
@@ -59,7 +84,7 @@ def query_world_lore(query: str, location: str = "", max_results: int = 3) -> Li
                         model="text-embedding-3-small"
                     )
                     query_embedding = response.data[0].embedding
-                    
+
                     results = collection.query(
                         query_embeddings=[query_embedding],
                         n_results=max_results,
@@ -82,7 +107,7 @@ def query_world_lore(query: str, location: str = "", max_results: int = 3) -> Li
         else:
             # No location specified, do regular semantic search
             enhanced_query = query
-            
+
             if USE_OPENAI_EMBEDDINGS and openai_client:
                 try:
                     response = openai_client.embeddings.create(
@@ -90,7 +115,7 @@ def query_world_lore(query: str, location: str = "", max_results: int = 3) -> Li
                         model="text-embedding-3-small"
                     )
                     query_embedding = response.data[0].embedding
-                    
+
                     results = collection.query(
                         query_embeddings=[query_embedding],
                         n_results=max_results
@@ -105,20 +130,28 @@ def query_world_lore(query: str, location: str = "", max_results: int = 3) -> Li
                     query_texts=[enhanced_query],
                     n_results=max_results
                 )
-        
+
         # Extract the text content
         if results['documents'] and results['documents'][0]:
             return results['documents'][0]
         else:
             return []
-            
+
     except Exception as e:
         print(f"RAG query error: {e}")
         # Return fallback content if RAG fails
         return [f"A mysterious {location or 'area'} with {query}"]
 
 def get_room_description(room_name: str) -> str:
-    """Get rich description for a specific room."""
+    """
+    Get rich description for a specific room.
+
+    Args:
+        room_name: Room name in any format (will be normalized internally)
+
+    Returns:
+        Concatenated room descriptions from the vector store
+    """
     descriptions = query_world_lore("room description environment", room_name, max_results=3)
     return " ".join(descriptions) if descriptions else f"You are in {room_name}."
 

@@ -47,7 +47,7 @@ if PYDANTIC_AI_AVAILABLE:
         return len(ctx.deps.current_inventory) < ctx.deps.inventory_limit
 
 
-    async def get_item_properties(ctx: RunContext[InventoryContext], item_name: str) -> Dict[str, Any]:
+    async def get_item_properties(ctx: RunContext[InventoryContext], item_name: str) -> Dict[str, Any]:  # pylint: disable=unused-argument
         """Get properties and description of an item."""
         # TODO: Implement item database lookup
         return {
@@ -73,7 +73,7 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
             'Generate responses that feel natural and immersive.'
         ),
         deps_type=InventoryContext,
-        tools=[check_item_availability, validate_inventory_space, get_item_properties],
+        tools=[check_item_availability, validate_inventory_space, get_item_properties],  # pylint: disable=possibly-used-before-assignment
     )
 else:
     INVENTORY_AGENT = None

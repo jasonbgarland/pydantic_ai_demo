@@ -15,6 +15,9 @@ except ImportError:
 
 from pydantic import BaseModel, Field
 
+# Import RAG tools
+from app.tools.rag_tools import query_world_lore, get_room_description as rag_get_room_description
+
 # Load environment variables
 load_dotenv()
 
@@ -36,7 +39,7 @@ class MovementResult(BaseModel):
 
 # Tool functions (defined before agent creation)
 if PYDANTIC_AI_AVAILABLE:
-    async def get_room_features(ctx: RunContext[RoomContext], location: str) -> str:
+    async def get_room_features(ctx: RunContext[RoomContext], location: str) -> str:  # pylint: disable=unused-argument
         """Get additional environmental features for a location."""
         # TODO: Query vector store (Chroma) for location-specific features
         return f"Environmental features for {location} would come from vector store."
@@ -74,32 +77,76 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
             'Match the tone of classic text adventures like Zork.'
         ),
         deps_type=RoomContext,
-        tools=[get_room_features, check_room_connections],
+        tools=[get_room_features, check_room_connections],  # pylint: disable=possibly-used-before-assignment
     )
 else:
     ROOM_DESCRIPTOR_AGENT = None
+
+
+# Room connection map based on world_config.md
+ROOM_CONNECTIONS = {
+    "Cave Entrance": {
+        "north": "Hidden Alcove",
+        "east": "Yawning Chasm"
+    },
+    "Hidden Alcove": {
+        "south": "Cave Entrance"
+    },
+    "Yawning Chasm": {
+        "west": "Cave Entrance",
+        "east": "Crystal Treasury",
+        "south": "Collapsed Passage"
+    },
+    "Crystal Treasury": {
+        "west": "Yawning Chasm"
+    },
+    "Collapsed Passage": {
+        "north": "Yawning Chasm"
+    }
+}
 
 
 class RoomDescriptor:
     """Wrapper class for the room descriptor agent.
 
     Provides compatibility with existing code while using PydanticAI underneath when available.
+    Uses RAG to retrieve rich room descriptions from the vector database.
     """
 
     def __init__(self):
         """Initialize the RoomDescriptor with default context."""
-        self.context = RoomContext(current_location="starting_room")
+        self.context = RoomContext(
+            current_location="Cave Entrance",
+            room_connections=ROOM_CONNECTIONS
+        )
 
     async def get_room_description(self, location: str) -> str:
-        """Get a description for the specified location."""
+        """
+        Get a description for the specified location using RAG.
+
+        Args:
+            location: Room name in human-readable format (e.g., "Cave Entrance")
+                     Will be automatically normalized for RAG queries
+
+        Returns:
+            Rich description of the room
+        """
         self.context.current_location = location
         if location not in self.context.visited_rooms:
-            self.context.visited_rooms.append(location)
+            self.context.visited_rooms.append(location)  # pylint: disable=no-member
 
+        # RAG query automatically normalizes location names (Cave Entrance -> cave_entrance)
+        rag_description = rag_get_room_description(location)
+
+        # If we got substantial content from RAG, use it
+        if rag_description and len(rag_description) > 50:
+            return rag_description
+
+        # If PydanticAI agent is available and OpenAI key is set, use it
         if PYDANTIC_AI_AVAILABLE and ROOM_DESCRIPTOR_AGENT:
             try:
                 result = await ROOM_DESCRIPTOR_AGENT.run(
-                    f"Describe the {location}",
+                    f"Describe the {location} in an evocative way",
                     deps=self.context
                 )
                 return result.data
@@ -107,23 +154,59 @@ class RoomDescriptor:
                 # Fallback if AI call fails
                 pass
 
-        # Fallback implementation
-        return f"You are in {location}. This room description will be enhanced with AI-generated content."
+        # Final fallback
+        return rag_description if rag_description else f"You are in {location}."
 
     async def handle_movement(self, from_location: str, direction: str) -> Dict[str, Any]:
-        """Handle movement between rooms."""
-        # Simple fallback logic
-        new_location = f"{from_location}_{direction}"
+        """Handle movement between rooms using the room connection map."""
+        # Check if movement is valid
+        connections = ROOM_CONNECTIONS.get(from_location, {})
+
+        if direction in connections:
+            new_location = connections[direction]
+            description = await self.get_room_description(new_location)
+
+            return {
+                "success": True,
+                "new_location": new_location,
+                "description": f"You move {direction}.\n\n{description}"
+            }
+
+        # Invalid direction
+        available_directions = list(connections.keys()) if connections else []
+        if available_directions:
+            dirs_text = ", ".join(available_directions)
+            blocked_msg = f"You can't go {direction} from here. Available directions: {dirs_text}."
+        else:
+            blocked_msg = f"You can't go {direction} from here. There are no obvious exits."
+
         return {
-            "success": True,
-            "new_location": new_location,
-            "description": f"You move {direction} to {new_location}."
-        }
+            "success": False,
+            "new_location": from_location,
+                "description": blocked_msg,
+                "blocked_reason": f"No exit {direction}"
+            }
 
     async def examine_environment(self, location: str, target: str = None) -> str:
-        """Examine environmental details in a room."""
+        """Examine environmental details in a room using RAG."""
         self.context.current_location = location
 
+        # Query RAG for specific details about the target or general environment
+        if target:
+            query_text = f"examine {target} details"
+            rag_results = query_world_lore(query_text, location, max_results=2)
+
+            if rag_results and rag_results[0]:
+                return " ".join(rag_results)
+        else:
+            # General examination - get environmental features
+            query_text = "environmental features details atmosphere"
+            rag_results = query_world_lore(query_text, location, max_results=3)
+
+            if rag_results and rag_results[0]:
+                return " ".join(rag_results)
+
+        # Try AI agent if RAG didn't provide enough
         if PYDANTIC_AI_AVAILABLE and ROOM_DESCRIPTOR_AGENT:
             try:
                 if target:
@@ -139,5 +222,5 @@ class RoomDescriptor:
 
         # Fallback implementation
         if target:
-            return f"You examine {target} in {location}. [Detailed examination coming soon]"
-        return f"Looking around {location}, you see... [Environmental details coming soon]"
+            return f"You examine {target} in {location}. Nothing particularly stands out."
+        return f"Looking around {location}, you notice the general atmosphere and surroundings."
