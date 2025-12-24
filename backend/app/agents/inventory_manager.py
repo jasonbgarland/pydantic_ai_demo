@@ -1,7 +1,15 @@
 """Inventory Manager Agent - Specialist for item interactions and inventory management."""
 import os
+import logging
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
+
+from ..tools.rag_tools import find_items_in_location
+from ..utils.name_utils import normalize_item_name, display_item_name
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 try:
     from pydantic_ai import Agent, RunContext
@@ -36,7 +44,8 @@ class ItemAction(BaseModel):
 
 # Tool functions (defined before agent creation)
 if PYDANTIC_AI_AVAILABLE:
-    async def check_item_availability(ctx: RunContext[InventoryContext], item_name: str, location: str) -> bool:
+    async def check_item_availability(
+            ctx: RunContext[InventoryContext], item_name: str, location: str) -> bool:
         """Check if an item is available in the current location."""
         room_items = ctx.deps.room_items.get(location, [])
         return item_name in room_items
@@ -47,7 +56,9 @@ if PYDANTIC_AI_AVAILABLE:
         return len(ctx.deps.current_inventory) < ctx.deps.inventory_limit
 
 
-    async def get_item_properties(ctx: RunContext[InventoryContext], item_name: str) -> Dict[str, Any]:  # pylint: disable=unused-argument
+    async def get_item_properties(
+            ctx: RunContext[InventoryContext],
+            item_name: str) -> Dict[str, Any]:  # pylint: disable=unused-argument
         """Get properties and description of an item."""
         # TODO: Implement item database lookup
         return {
@@ -86,33 +97,120 @@ class InventoryManager:
     """
 
     def __init__(self):
-        """Initialize the InventoryManager with empty inventory."""
+        """Initialize the InventoryManager."""
         self.context = InventoryContext()
 
-    async def pickup_item(self, item_name: str, current_inventory: List[str]) -> Dict[str, Any]:
+    async def pickup_item(
+            self, item_name: str, current_inventory: List[str],
+            current_location: str = None) -> Dict[str, Any]:
         """Handle picking up an item."""
+        logger.info(
+            "PICKUP REQUEST: item=%s, location=%s, inventory=%s",
+            item_name, current_location, current_inventory
+        )
         self.context.current_inventory = current_inventory.copy()
+
+        # Check for compound names first (before any processing)
+        if " and " in item_name or "," in item_name:
+            return {
+                "success": False,
+                "message": "You can only pick up one item at a time. Please specify a single item.",
+                "inventory_update": current_inventory
+            }
+
+        # Normalize item name for matching using shared utility
+        normalized_input = normalize_item_name(item_name)
+
+        # Item aliases - map common short names to possible full names
+        # When user says "potion", check for both "potion" and "healing_potion"
+        item_aliases = {
+            'potion': ['potion', 'healing_potion'],
+            'health_potion': ['healing_potion'],
+            'rope': ['rope', 'magical_rope'],
+            'gear': ['gear', 'climbing_gear'],
+            'journal': ['journal', 'explorer_journal'],
+            'crystal': ['crystal', 'crystal_of_echoing_depths'],
+            'pack': ['pack', 'leather_pack'],
+            'backpack': ['backpack', 'leather_pack'],
+        }
+
+        # Build list of names to check (normalized_input + any aliases)
+        names_to_check = [normalized_input]
+        if normalized_input in item_aliases:
+            names_to_check.extend(item_aliases[normalized_input])
+
+        # Populate room_items from structured data so the AI agent can validate
+        if current_location:
+            available_items = find_items_in_location(current_location)
+            logger.info("AVAILABLE ITEMS: %s", available_items)
+
+            # Check if any of the candidate names exist in available items
+            item_match = None
+            for candidate_name in names_to_check:
+                for available_item in available_items:
+                    if candidate_name == normalize_item_name(available_item):
+                        item_match = available_item  # Use the canonical name from the room data
+                        break
+                if item_match:
+                    break
+
+            if not item_match:
+                logger.info(
+                    "ITEM NOT FOUND: %s (normalized: %s) not in %s",
+                    item_name, normalized_input, available_items
+                )
+                return {
+                    "success": False,
+                    "message": f"You don't see any {item_name} here.",
+                    "inventory_update": current_inventory
+                }
+
+            # Use the matched canonical name for the rest of the process
+            item_name = item_match
+
+            self.context.room_items = {current_location: available_items}
 
         if PYDANTIC_AI_AVAILABLE and INVENTORY_AGENT:
             try:
+                logger.info(
+                    "CALLING AI AGENT with context: room_items=%s",
+                    self.context.room_items
+                )
                 result = await INVENTORY_AGENT.run(
-                    f"Player wants to pick up: {item_name}",
+                    f"Player wants to pick up: {item_name} from "
+                    f"{current_location}. Check if the item exists in "
+                    f"the location before allowing pickup.",
                     deps=self.context
+                )
+                logger.info(
+                    "AI AGENT RESULT: success=%s, message=%s",
+                    result.data.success, result.data.message
                 )
                 return {
                     "success": result.data.success,
                     "message": result.data.message,
                     "inventory_update": result.data.inventory_update
                 }
-            except Exception:
+            except Exception as e:
                 # Fallback if AI call fails
-                pass
+                logger.error("AI AGENT FAILED: %s", e, exc_info=True)
 
-        # Fallback implementation
-        new_inventory = current_inventory + [item_name]
+        # Fallback implementation - validate manually if AI not available
+        logger.info("USING FALLBACK VALIDATION")
+
+        # Check if item is already in inventory (use matched canonical name)
+        check_name = item_match if item_match else item_name
+        if check_name in current_inventory:
+            return {
+                "success": False,
+                "message": f"You already have the {display_item_name(check_name)}.",
+                "inventory_update": current_inventory
+            }
+
+        new_inventory = current_inventory + [check_name]
         return {
             "success": True,
-            "message": f"You pick up the {item_name}.",
+            "message": f"You pick up the {display_item_name(check_name)}.",
             "inventory_update": new_inventory
         }
 
@@ -208,3 +306,10 @@ class InventoryManager:
             return "Your inventory is empty."
 
         return f"You are carrying: {', '.join(current_inventory)}"
+
+    async def get_inventory_summary(self, current_inventory: List[str]) -> str:
+        """Get a summary of the player's inventory.
+        
+        This is an alias for list_inventory to maintain compatibility.
+        """
+        return await self.list_inventory(current_inventory)

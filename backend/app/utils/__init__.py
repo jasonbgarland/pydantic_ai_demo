@@ -1,5 +1,5 @@
 """Utils package for shared utility functions."""
-from .location_utils import (
+from .name_utils import (
     normalize_location_name,
     display_location_name,
     get_display_name,

@@ -315,14 +315,17 @@ class AdventureNarrator:
         """Handle examination commands by delegating to RoomDescriptor."""
         target = command.target or 'around'
         current_location = game_state.get('location', 'unknown')
+        current_inventory = game_state.get('inventory', [])
 
         if self.room_descriptor:
             try:
                 if target == 'around':
-                    description = await self.room_descriptor.get_room_description(current_location)
+                    description = await self.room_descriptor.get_room_description(
+                        current_location
+                    )
                 else:
                     description = await self.room_descriptor.examine_environment(
-                        current_location, target
+                        current_location, target, inventory=current_inventory
                     )
                 return GameResponse(
                     agent="RoomDescriptor",
@@ -354,11 +357,12 @@ class AdventureNarrator:
         target = command.target or 'something'
         action = command.action
         current_inventory = game_state.get('inventory', [])
+        current_location = game_state.get('location', '')
 
         if self.inventory_manager:
             try:
                 if action in ['get', 'take', 'pickup', 'grab', 'collect']:
-                    result = await self.inventory_manager.pickup_item(target, current_inventory)
+                    result = await self.inventory_manager.pickup_item(target, current_inventory, current_location)
                 elif action in ['drop', 'put', 'place', 'leave']:
                     result = await self.inventory_manager.drop_item(target, current_inventory)
                 elif action in ['use', 'utilize', 'activate', 'apply']:

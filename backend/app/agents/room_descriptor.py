@@ -1,6 +1,6 @@
 """Room Descriptor Agent - Specialist for room descriptions and environmental details."""
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 
 try:
@@ -45,7 +45,9 @@ if PYDANTIC_AI_AVAILABLE:
         return f"Environmental features for {location} would come from vector store."
 
 
-    async def check_room_connections(ctx: RunContext[RoomContext], from_location: str, direction: str) -> Dict[str, Any]:
+    async def check_room_connections(
+            ctx: RunContext[RoomContext],
+            from_location: str, direction: str) -> Dict[str, Any]:
         """Check if movement in a direction is valid."""
         # TODO: Implement actual room connection logic
         connections = ctx.deps.room_connections.get(from_location, {})
@@ -85,23 +87,23 @@ else:
 
 # Room connection map based on world_config.md
 ROOM_CONNECTIONS = {
-    "Cave Entrance": {
-        "north": "Hidden Alcove",
-        "east": "Yawning Chasm"
+    "cave_entrance": {
+        "north": "hidden_alcove",
+        "east": "yawning_chasm"
     },
-    "Hidden Alcove": {
-        "south": "Cave Entrance"
+    "hidden_alcove": {
+        "south": "cave_entrance"
     },
-    "Yawning Chasm": {
-        "west": "Cave Entrance",
-        "east": "Crystal Treasury",
-        "south": "Collapsed Passage"
+    "yawning_chasm": {
+        "west": "cave_entrance",
+        "east": "crystal_treasury",
+        "south": "collapsed_passage"
     },
-    "Crystal Treasury": {
-        "west": "Yawning Chasm"
+    "crystal_treasury": {
+        "west": "yawning_chasm"
     },
-    "Collapsed Passage": {
-        "north": "Yawning Chasm"
+    "collapsed_passage": {
+        "north": "yawning_chasm"
     }
 }
 
@@ -187,40 +189,94 @@ class RoomDescriptor:
                 "blocked_reason": f"No exit {direction}"
             }
 
-    async def examine_environment(self, location: str, target: str = None) -> str:
-        """Examine environmental details in a room using RAG."""
+    async def examine_environment(
+            self, location: str,
+            target: str = None, inventory: List[str] = None) -> str:
+        """Examine environmental details in a room using RAG.
+        
+        Args:
+            location: Current room location
+            target: Specific thing to examine (or None for general look)
+            inventory: Player's current inventory to filter out picked-up items
+        """
         self.context.current_location = location
+        inventory = inventory or []
 
         # Query RAG for specific details about the target or general environment
         if target:
-            query_text = f"examine {target} details"
-            rag_results = query_world_lore(query_text, location, max_results=2)
+            # Try multiple query strategies to find content about the target
+            queries = [
+                f"{target}",  # Direct match
+                f"{target} description details",
+                f"{target} symbols carvings",  # For carvings/symbols
+            ]
 
-            if rag_results and rag_results[0]:
-                return " ".join(rag_results)
+            all_results = []
+            for query in queries:
+                results = query_world_lore(query, location, max_results=3)
+                if results:
+                    all_results.extend(results)
+
+            if all_results:
+                # Filter out bullet points, headers, and metadata
+                substantive_results = []
+
+                for result in all_results:
+                    if not result or len(result) < 20:
+                        continue
+
+                    # Check if this result is actually about the target
+                    target_words = target.lower().split()
+                    relevance = sum(1 for word in target_words
+                                    if word in result.lower())
+
+                    if relevance == 0:
+                        continue
+
+                    # Split into sentences to find focused content
+                    sentences = result.replace('\n', ' ').split('.')
+                    focused_sentences = []
+
+                    for sentence in sentences:
+                        sentence = sentence.strip()
+                        # Skip bullets, headers, or metadata
+                        if (sentence.startswith('-') or
+                                sentence.startswith('#') or
+                                ':**' in sentence or
+                                len(sentence) < 15):
+                            continue
+
+                        # Check if sentence is about the target
+                        sentence_lower = sentence.lower()
+                        target_lower = target.lower()
+                        if any(word in sentence_lower
+                               for word in target_words):
+                            # Avoid sentences mentioning multiple items
+                            items = ['rope', 'torch', 'pack', 'potion',
+                                     'gear', 'journal']
+                            item_mentions = sum(
+                                1 for word in items
+                                if word in sentence_lower and
+                                word not in target_lower
+                            )
+
+                            # Only include if focuses on target
+                            if item_mentions <= 1:
+                                focused_sentences.append(sentence)
+
+                    if focused_sentences:
+                        cleaned_text = '. '.join(focused_sentences) + '.'
+                        substantive_results.append((relevance, cleaned_text))
+
+                if substantive_results:
+                    # Return the most relevant match
+                    substantive_results.sort(reverse=True, key=lambda x: x[0])
+                    return substantive_results[0][1]
         else:
-            # General examination - get environmental features
-            query_text = "environmental features details atmosphere"
-            rag_results = query_world_lore(query_text, location, max_results=3)
+            # General examination - get main room description, not atmospheric details
+            return await self.get_room_description(location)
 
-            if rag_results and rag_results[0]:
-                return " ".join(rag_results)
-
-        # Try AI agent if RAG didn't provide enough
-        if PYDANTIC_AI_AVAILABLE and ROOM_DESCRIPTOR_AGENT:
-            try:
-                if target:
-                    prompt = f"Describe examining {target} in detail in the {location}"
-                else:
-                    prompt = f"Provide a detailed examination of the {location}, noting all visible features"
-
-                result = await ROOM_DESCRIPTOR_AGENT.run(prompt, deps=self.context)
-                return result.data
-            except Exception:
-                # Fallback if AI call fails
-                pass
-
-        # Fallback implementation
+        # If no RAG results, return a reasonable "not found" message instead of generic AI response
         if target:
-            return f"You examine {target} in {location}. Nothing particularly stands out."
-        return f"Looking around {location}, you notice the general atmosphere and surroundings."
+            return f"You don't see anything particularly notable about {target} here."
+        return f"You look around {location} but don't notice anything unusual."

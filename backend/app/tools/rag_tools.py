@@ -2,7 +2,7 @@
 import os
 from typing import List, Dict, Any
 from pathlib import Path
-from app.utils.location_utils import normalize_location_name
+from app.utils.name_utils import normalize_location_name
 
 # Check if OpenAI is available and configured
 try:
@@ -152,11 +152,71 @@ def get_room_description(room_name: str) -> str:
     Returns:
         Concatenated room descriptions from the vector store
     """
-    descriptions = query_world_lore("room description environment", room_name, max_results=3)
-    return " ".join(descriptions) if descriptions else f"You are in {room_name}."
+    descriptions = query_world_lore("room description environment", room_name, max_results=5)
+    if not descriptions:
+        return f"You are in {room_name}."
+    
+    # Filter and clean description chunks
+    cleaned = []
+    skip_sections = ['atmospheric details', 'utility benefits', 'discovery opportunities']
+    
+    for desc in descriptions:
+        # Skip chunks that are from special sections (they're more like metadata)
+        desc_lower = desc.lower()
+        if any(section in desc_lower for section in skip_sections):
+            continue
+            
+        # Remove lines starting with # (markdown headers) or - (bullet points from those sections)
+        lines = []
+        for line in desc.split('\n'):
+            stripped = line.strip()
+            # Skip markdown headers
+            if stripped.startswith('#'):
+                continue
+            # Skip bullet points (likely from atmospheric/utility sections)
+            if stripped.startswith('-'):
+                continue
+            # Skip metadata lines
+            if stripped.startswith('##') or ':**' in line:
+                continue
+            if stripped:
+                lines.append(line)
+        
+        cleaned_text = '\n'.join(lines).strip()
+        if cleaned_text and len(cleaned_text) > 30:  # Only include substantial content
+            cleaned.append(cleaned_text)
+    
+    # Return up to 2 main descriptive paragraphs
+    return " ".join(cleaned[:2]) if cleaned else f"You are in {room_name}."
 
 def find_items_in_location(location: str) -> List[str]:
-    """Find items available in a specific location."""
+    """Find items available in a specific location by parsing room metadata.
+    
+    Returns a list of item names (e.g., ['rope', 'torch', 'leather_pack'])
+    """
+    # First try to parse from the markdown file directly
+    normalized_location = normalize_location_name(location)
+    world_data_path = Path(__file__).parent.parent / "world_data" / "rooms"
+    
+    # Try to find the room file
+    for room_file in world_data_path.glob("*.md"):
+        with open(room_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            # Check if this is the right room by looking for Location: header
+            for line in content.split('\n'):
+                if line.startswith('## Location:'):
+                    file_location = line.replace('## Location:', '').strip()
+                    if normalize_location_name(file_location) == normalized_location:
+                        # Found the right room, now extract items
+                        for item_line in content.split('\n'):
+                            if item_line.startswith('## Items:'):
+                                items_str = item_line.replace('## Items:', '').strip()
+                                if items_str:
+                                    # Parse comma-separated items
+                                    return [item.strip() for item in items_str.split(',')]
+                                return []
+    
+    # Fallback to RAG query if file parsing fails
     items = query_world_lore("items objects pickup treasure", location, max_results=3)
     return items
 

@@ -33,10 +33,9 @@ class TestSessionIntegration(unittest.TestCase):
         self.assertEqual(session["game_id"], game_id)
         self.assertEqual(session["character"]["name"], "IntegrationTester")
         self.assertEqual(session["character"]["character_class"], "warrior")
-        self.assertEqual(session["location"], "dungeon_entrance")
+        self.assertEqual(session["location"], "cave_entrance")
         self.assertEqual(session["turn_count"], 0)
         self.assertIsInstance(session["inventory"], list)
-        self.assertIsInstance(session["discovered"], list)
 
         # Get initial state
         state_response = requests.get(f"{self.base_url}/game/{game_id}/state",

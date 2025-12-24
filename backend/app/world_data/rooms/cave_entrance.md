@@ -24,6 +24,19 @@ The entrance provides your last glimpse of the outside world before venturing in
 - Fresh air from outside mixes with the deep cave's musty atmosphere
 - The transition from daylight to shadow creates an ominous mood
 
+### Ancient Carved Symbols
+
+The cave walls near the entrance bear intricate carvings, weathered by centuries but still partially legible. The symbols appear to be a mixture of pictographs and abstract geometric patterns:
+
+- **Central spiral motif**: A large spiral carved deep into the stone, possibly representing a journey inward or the passage of time
+- **Repeated wave patterns**: Undulating lines that might symbolize water or the underworld
+- **Stick figure processions**: Small carved figures appear to be carrying offerings or treasures into the depths
+- **Warning glyphs**: Several angular symbols that create an ominous feeling, perhaps cautioning explorers
+
+The carvings suggest this cave system held ritual significance to an ancient culture. Some symbols resemble those found in other sacred caves throughout the region, hinting at a broader network of underground sites. The precision of the carvings indicates they were made with metal tools, unusual for primitive cultures.
+
+Close examination reveals that portions of the symbols have been deliberately defaced or worn smooth, as if someone tried to erase certain messages. What secrets did they wish to hide?
+
 ## Discovery Opportunities
 
 - Examining the carvings might reveal clues about the cave's history

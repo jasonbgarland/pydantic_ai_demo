@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useGame } from "@/hooks/useGame";
+import { GameScreen } from "@/components/GameScreen";
 
 interface CharacterClass {
   name: string;
@@ -44,6 +46,16 @@ export default function Home() {
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [characterName, setCharacterName] = useState<string>("");
   const [character, setCharacter] = useState<Character | null>(null);
+
+  // Game state management hook
+  const {
+    session,
+    narrative,
+    isLoading,
+    initializeGame,
+    executeCommand,
+    resetGame,
+  } = useGame();
 
   useEffect(() => {
     const checkBackendHealth = async () => {
@@ -102,6 +114,7 @@ export default function Home() {
     if (!characterName.trim()) return;
 
     try {
+      // Create character in backend
       const response = await fetch("http://localhost:8001/character/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -114,10 +127,31 @@ export default function Home() {
       if (response.ok) {
         const data = await response.json();
         setCharacter(data.character);
+
+        // Initialize game session with this character
+        await initializeGame({
+          name: characterName,
+          character_class: selectedClass,
+        });
+
         setGameState("game");
       }
     } catch (error) {
       console.error("Failed to create character:", error);
+    }
+  };
+
+  const handleCommandExecute = async (command: string) => {
+    await executeCommand(command);
+  };
+
+  const handleExitGame = () => {
+    if (confirm("Are you sure you want to exit? Your progress will be lost.")) {
+      resetGame();
+      setGameState("main");
+      setCharacter(null);
+      setCharacterName("");
+      setSelectedClass("");
     }
   };
 
@@ -134,10 +168,14 @@ export default function Home() {
           <h2 className="text-xl mb-2">System Status</h2>
           <p>&gt; Backend API: {getStatusDisplay()}</p>
           <p>
-            &gt; Agent Network: <span className="text-blue-400">Standby</span>
+            &gt; Agents Active:{" "}
+            <span className="text-green-400">
+              AdventureNarrator, RoomDescriptor, InventoryManager
+            </span>
           </p>
           <p>
-            &gt; Memory Systems: <span className="text-green-400">Ready</span>
+            &gt; Vector Store:{" "}
+            <span className="text-green-400">52 content chunks loaded</span>
           </p>
         </div>
 
@@ -276,71 +314,25 @@ export default function Home() {
     </div>
   );
 
-  const renderGameScreen = () => (
-    <div className="text-center max-w-4xl">
-      <h1 className="text-4xl font-bold mb-4">THE ADVENTURE BEGINS</h1>
-
-      {character && (
-        <div className="border border-green-400 p-4 mb-8">
-          <h2 className="text-2xl font-bold mb-2">
-            {character.name.toUpperCase()}
-          </h2>
-          <p className="mb-4">
-            Level {character.level}{" "}
-            {character.character_class.charAt(0).toUpperCase() +
-              character.character_class.slice(1)}
-          </p>
-
-          <div className="grid grid-cols-5 gap-4 text-center">
-            <div>
-              <p className="font-bold">STR</p>
-              <p>{character.stats.strength}</p>
-            </div>
-            <div>
-              <p className="font-bold">MAG</p>
-              <p>{character.stats.magic}</p>
-            </div>
-            <div>
-              <p className="font-bold">AGI</p>
-              <p>{character.stats.agility}</p>
-            </div>
-            <div>
-              <p className="font-bold">HP</p>
-              <p>{character.stats.health}</p>
-            </div>
-            <div>
-              <p className="font-bold">STL</p>
-              <p>{character.stats.stealth}</p>
-            </div>
-          </div>
+  const renderGameScreen = () => {
+    if (!session) {
+      return (
+        <div className="text-center">
+          <p className="text-yellow-400">Loading game session...</p>
         </div>
-      )}
+      );
+    }
 
-      <div className="border border-green-400 p-4 mb-4 text-left">
-        <p>&gt; You stand at the entrance to an ancient dungeon...</p>
-        <p>&gt; Shadows dance in the torchlight ahead.</p>
-        <p>&gt; Your adventure awaits!</p>
-      </div>
-
-      <div className="mt-8">
-        <input
-          type="text"
-          placeholder="Enter command (look, go north, examine, etc.)..."
-          className="bg-black border border-green-400 text-green-400 p-2 w-full max-w-2xl"
-        />
-        <button className="bg-green-400 text-black px-4 py-2 ml-2">
-          Execute
-        </button>
-      </div>
-
-      <button
-        onClick={() => setGameState("main")}
-        className="mt-4 px-4 py-2 border border-green-400 hover:bg-green-400 hover:text-black text-sm"
-      >
-        Exit to Main Menu
-      </button>
-    </div>
-  );
+    return (
+      <GameScreen
+        session={session}
+        narrative={narrative}
+        isLoading={isLoading}
+        onCommand={handleCommandExecute}
+        onExit={handleExitGame}
+      />
+    );
+  };
 
   const renderCurrentScreen = () => {
     switch (gameState) {

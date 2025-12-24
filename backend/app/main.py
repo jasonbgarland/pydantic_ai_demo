@@ -117,9 +117,9 @@ async def create_session(character: dict) -> dict:
         "created_at": now,
         "updated_at": now,
         "character": character,
-        "location": "Cave Entrance",  # Start at the adventure's beginning
+        "location": "cave_entrance",  # Start at the adventure's beginning
         "inventory": [],
-        "discovered": ["Cave Entrance"],
+        "discovered": ["cave_entrance"],
         "turn_count": 0,
         "temp_flags": {}
     }
@@ -247,7 +247,7 @@ async def process_command(game_id: str, command: GameCommand):
     # Update session state
     session.setdefault("turn_count", 0)
     session["turn_count"] += 1
-    session.setdefault("location", "Cave Entrance")  # Use the actual starting location from world data
+    session.setdefault("location", "cave_entrance")
     session.setdefault("inventory", [])
     session.setdefault("visited_rooms", [])
 

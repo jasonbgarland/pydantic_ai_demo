@@ -1,6 +1,6 @@
-"""Test location normalization utilities."""
+"""Test name normalization utilities (locations and items)."""
 import unittest
-from app.utils.location_utils import (
+from app.utils.name_utils import (
     normalize_location_name,
     display_location_name,
     get_display_name,
