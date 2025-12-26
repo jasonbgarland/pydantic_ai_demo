@@ -182,7 +182,7 @@ class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
 
         # Verify agent was called
         self.mock_inventory_manager.pickup_item.assert_called_once_with(
-            'golden_sword', ['rusty_key', 'torch']
+            'golden_sword', ['rusty_key', 'torch'], 'dungeon_entrance'
         )
 
     async def test_talk_with_entity_manager_agent(self):

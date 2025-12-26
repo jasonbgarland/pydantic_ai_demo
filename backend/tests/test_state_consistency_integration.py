@@ -30,14 +30,14 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
-        
+
         # Try to pick it up again
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "take leather pack"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         # Should fail because it's not in the room anymore
         self.assertFalse(data["success"],
@@ -53,7 +53,7 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
-        
+
         # Move to another room
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
@@ -61,14 +61,14 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
-        
+
         # Check inventory
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "inventory"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         inventory = data.get("session", {}).get("inventory", [])
         self.assertIn("leather_pack", inventory,
@@ -84,7 +84,7 @@ class TestStateConsistency(unittest.TestCase):
         )
         initial_location = response.json()["session"]["location"]
         self.assertEqual(initial_location, "cave_entrance")
-        
+
         # Move north
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
@@ -92,7 +92,7 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         new_location = response.json()["session"]["location"]
-        
+
         self.assertNotEqual(new_location, initial_location)
         self.assertEqual(new_location, "hidden_alcove")
 
@@ -105,7 +105,7 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
-        
+
         # Pick up item 2
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
@@ -113,7 +113,7 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
-        
+
         # Move rooms
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
@@ -121,18 +121,18 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
-        
+
         # Check final state
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "inventory"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         inventory = data.get("session", {}).get("inventory", [])
         location = data.get("session", {}).get("location")
-        
+
         # Should have both items
         self.assertIn("rope", inventory)
         self.assertIn("torch", inventory)
@@ -148,14 +148,14 @@ class TestStateConsistency(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
-        
+
         # Try to examine it
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "examine leather pack"},
             timeout=TIMEOUT
         )
-        
+
         # Should either say it's not there or give generic response
         description = response.json()["response"].lower()
         # Should NOT give detailed pack description

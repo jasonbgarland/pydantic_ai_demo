@@ -1,4 +1,5 @@
 """FastAPI adventure engine with character classes and Redis session management."""
+import asyncio
 import json
 import os
 import uuid
@@ -7,7 +8,7 @@ from enum import Enum
 from typing import Dict, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis.asyncio as aioredis
@@ -314,3 +315,147 @@ async def get_game_state(game_id: str):
     if not session:
         return {"error": "session_not_found", "message": "Game session not found"}
     return session
+
+
+@app.websocket("/ws/game/{game_id}")
+async def websocket_game_endpoint(websocket: WebSocket, game_id: str):
+    """WebSocket endpoint for real-time game interaction with streaming responses.
+
+    Connection flow:
+    1. Client connects with game_id
+    2. Server validates session exists
+    3. Bi-directional communication begins:
+       - Client sends: {"command": "look around", "parameters": {}}
+       - Server streams: {"type": "chunk", "data": "You peer..."}
+                        {"type": "chunk", "data": " into the..."}
+                        {"type": "complete", "session": {...}}
+    """
+    await websocket.accept()
+
+    # Validate session exists
+    session = await get_session(game_id)
+    if not session:
+        await websocket.send_json({
+            "type": "error",
+            "error": "session_not_found",
+            "message": "Game session not found"
+        })
+        await websocket.close()
+        return
+
+    # Send connection confirmation
+    await websocket.send_json({
+        "type": "connected",
+        "game_id": game_id,
+        "session": session
+    })
+
+    try:
+        while True:
+            # Receive command from client
+            data = await websocket.receive_json()
+
+            command_text = data.get("command", "")
+            parameters = data.get("parameters")
+
+            # Update session state
+            session["turn_count"] = session.get("turn_count", 0) + 1
+            session.setdefault("location", "cave_entrance")
+            session.setdefault("inventory", [])
+            session.setdefault("visited_rooms", [])
+
+            # Record command in history
+            history = session.setdefault("history", [])
+            history.append({
+                "turn": session["turn_count"],
+                "command": command_text,
+                "params": parameters
+            })
+
+            try:
+                # Parse command using AdventureNarrator
+                parsed_command = adventure_narrator.parse_command(command_text, parameters)
+
+                # Send typing indicator
+                await websocket.send_json({
+                    "type": "typing",
+                    "agent": "adventure_narrator"
+                })
+
+                # Process command through agent coordination with streaming
+                # NOTE: Currently using handle_command which returns complete response
+                # TODO: Implement streaming at the agent level for real LLM token streaming
+                # This would require:
+                # 1. RoomDescriptor/other agents to use agent.run_stream() instead of agent.run()
+                # 2. AdventureNarrator to yield chunks as agents generate them
+                # 3. Async generator pattern: async for chunk in narrator.handle_command_stream(...)
+
+                game_response = await adventure_narrator.handle_command(
+                    parsed_command=parsed_command,
+                    game_state={
+                        "location": session["location"],
+                        "inventory": session["inventory"],
+                        "visited_rooms": session["visited_rooms"],
+                        "character": session.get("character", {}),
+                        "turn_count": session["turn_count"]
+                    }
+                )
+
+                # Stream the narrative response in chunks (word-by-word for dramatic effect)
+                # NOTE: This is "fake streaming" - we already have the full response
+                # Real streaming would send tokens as the LLM generates them
+                narrative = game_response.narrative
+                words = narrative.split()
+
+                for i, word in enumerate(words):
+                    # Add space between words (except for first word)
+                    chunk = word if i == 0 else f" {word}"
+                    chunk_msg = {
+                        "type": "chunk",
+                        "data": chunk
+                    }
+                    await websocket.send_json(chunk_msg)
+                    # Small delay to create streaming effect (adjust for desired speed)
+                    await asyncio.sleep(0.08)  # 80ms between words = ~12 words/second
+
+                # Apply game state updates from agent response
+                if game_response.game_state_updates:
+                    for key, value in game_response.game_state_updates.items():
+                        session[key] = value
+
+                # Save the updated session
+                await save_session(game_id, session)
+
+                # Send completion message with full state
+                await websocket.send_json({
+                    "type": "complete",
+                    "game_id": game_id,
+                    "turn": session["turn_count"],
+                    "agent": game_response.agent,
+                    "success": game_response.success,
+                    "session": session,
+                    "metadata": game_response.metadata
+                })
+
+            except Exception as exc:
+                # Send error response
+                error_message = f"Error processing command '{command_text}': {str(exc)}"
+
+                await websocket.send_json({
+                    "type": "error",
+                    "message": error_message,
+                    "error": str(exc)
+                })
+
+                await save_session(game_id, session)
+
+    except WebSocketDisconnect:
+        # Client disconnected - clean up if needed
+        pass
+    except Exception as exc:
+        # Unexpected error - log and close
+        await websocket.send_json({
+            "type": "error",
+            "message": f"WebSocket error: {str(exc)}"
+        })
+        await websocket.close()

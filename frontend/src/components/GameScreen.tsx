@@ -19,7 +19,9 @@ interface GameScreenProps {
   session: GameSession;
   narrative: NarrativeEntry[];
   isLoading: boolean;
-  onCommand: (command: string) => Promise<void>;
+  isTyping?: boolean; // New: WebSocket typing indicator
+  isConnected?: boolean; // New: WebSocket connection status
+  onCommand: (command: string) => Promise<void> | void; // Updated: can be sync for WebSocket
   onExit: () => void;
 }
 
@@ -27,6 +29,8 @@ export function GameScreen({
   session,
   narrative,
   isLoading,
+  isTyping = false,
+  isConnected = true,
   onCommand,
   onExit,
 }: GameScreenProps) {
@@ -148,6 +152,13 @@ export function GameScreen({
                 </span>
               </p>
             )}
+            <p className="mt-1">
+              {isConnected ? (
+                <span className="text-green-400 text-xs">● Connected</span>
+              ) : (
+                <span className="text-red-400 text-xs">● Disconnected</span>
+              )}
+            </p>
           </div>
         </div>
       </div>
@@ -174,7 +185,12 @@ export function GameScreen({
               )}
             </div>
           ))}
-          {isLoading && (
+          {isTyping && (
+            <p className="text-blue-400 animate-pulse">
+              &gt; Agent is thinking<span className="animate-pulse">...</span>
+            </p>
+          )}
+          {isLoading && !isTyping && (
             <p className="text-blue-400 animate-pulse">
               &gt; Processing command...
             </p>

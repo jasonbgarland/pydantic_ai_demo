@@ -23,34 +23,34 @@ class TestSessionManagement(unittest.TestCase):
             },
             timeout=TIMEOUT
         )
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         # Verify response structure
         self.assertIn("game_id", data)
         self.assertIn("session", data)
-        
+
         game_id = data["game_id"]
         session = data["session"]
-        
+
         # Verify session data
         self.assertEqual(session["character"]["name"], "TestHero")
         self.assertEqual(session["character"]["character_class"], "warrior")
         self.assertEqual(session["location"], "cave_entrance")
         self.assertEqual(len(session["inventory"]), 0)
         self.assertEqual(session["turn_count"], 0)
-        
+
         return game_id
 
     def test_session_persistence(self):
         """Test that session state persists across multiple commands."""
         # Start game
         game_id = self.test_create_character_and_start_game()
-        
+
         # Execute multiple commands
         commands = ["look around", "take rope", "inventory"]
-        
+
         for cmd in commands:
             response = requests.post(
                 f"{BASE_URL}/game/{game_id}/command",
@@ -58,14 +58,14 @@ class TestSessionManagement(unittest.TestCase):
                 timeout=TIMEOUT
             )
             self.assertEqual(response.status_code, 200)
-        
+
         # Verify final state
         final_response = requests.post(
             f"{BASE_URL}/game/{game_id}/command",
             json={"command": "inventory"},
             timeout=TIMEOUT
         )
-        
+
         data = final_response.json()
         self.assertGreater(data["turn"], 0)
         self.assertIn("rope", data["session"]["inventory"])
@@ -91,14 +91,14 @@ class TestMovement(unittest.TestCase):
             json={"command": "go north"},
             timeout=TIMEOUT
         )
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         # Verify movement success
         self.assertTrue(data["success"])
         self.assertEqual(data["session"]["location"], "hidden_alcove")
-        
+
         # Verify room description quality
         description = data["response"]
         self.assertGreater(len(description), 50)
@@ -112,14 +112,14 @@ class TestMovement(unittest.TestCase):
             json={"command": "go west"},
             timeout=TIMEOUT
         )
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         # Verify movement failed
         self.assertFalse(data["success"])
         self.assertEqual(data["session"]["location"], "cave_entrance")
-        
+
         # Verify error message indicates invalid direction
         self.assertIn("cannot", data["response"].lower())
 
@@ -132,7 +132,7 @@ class TestMovement(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertEqual(response1.json()["session"]["location"], "hidden_alcove")
-        
+
         # Move back south
         response2 = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",

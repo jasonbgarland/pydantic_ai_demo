@@ -193,7 +193,7 @@ class RoomDescriptor:
             self, location: str,
             target: str = None, inventory: List[str] = None) -> str:
         """Examine environmental details in a room using RAG.
-        
+
         Args:
             location: Current room location
             target: Specific thing to examine (or None for general look)

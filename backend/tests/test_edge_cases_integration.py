@@ -28,7 +28,7 @@ class TestEdgeCases(unittest.TestCase):
             json={"command": ""},
             timeout=TIMEOUT
         )
-        
+
         # Should handle gracefully
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -42,7 +42,7 @@ class TestEdgeCases(unittest.TestCase):
             json={"command": "   "},
             timeout=TIMEOUT
         )
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("response", data)
@@ -55,7 +55,7 @@ class TestEdgeCases(unittest.TestCase):
             json={"command": long_command},
             timeout=TIMEOUT
         )
-        
+
         # Should handle without crashing
         self.assertEqual(response.status_code, 200)
 
@@ -67,14 +67,14 @@ class TestEdgeCases(unittest.TestCase):
             "go north!!!",
             "look & listen",
         ]
-        
+
         for cmd in special_chars:
             response = requests.post(
                 f"{BASE_URL}/game/{self.game_id}/command",
                 json={"command": cmd},
                 timeout=TIMEOUT
             )
-            
+
             # Should not crash
             self.assertEqual(response.status_code, 200)
             self.assertIn("response", response.json())
@@ -86,14 +86,14 @@ class TestEdgeCases(unittest.TestCase):
             "inventory",
             "InVeNtOrY",
         ]
-        
+
         for cmd in commands:
             response = requests.post(
                 f"{BASE_URL}/game/{self.game_id}/command",
                 json={"command": cmd},
                 timeout=TIMEOUT
             )
-            
+
             data = response.json()
             # All should work
             self.assertIn("inventory", data.get("session", {}))
@@ -105,7 +105,7 @@ class TestEdgeCases(unittest.TestCase):
             json={"command": "take LEATHER PACK"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         # Should work due to normalization
         self.assertTrue(data["success"])
@@ -119,7 +119,7 @@ class TestEdgeCases(unittest.TestCase):
             json={"command": "take    leather     pack"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         # Should work with normalization
         self.assertTrue(data["success"])
@@ -131,7 +131,7 @@ class TestEdgeCases(unittest.TestCase):
             json={"command": "look around"},
             timeout=TIMEOUT
         )
-        
+
         # Should return error or handle gracefully
         # Don't crash the server
         self.assertIn(response.status_code, [200, 404, 400])
@@ -143,7 +143,7 @@ class TestEdgeCases(unittest.TestCase):
             json={"command": "examine 🗡️ sword"},
             timeout=TIMEOUT
         )
-        
+
         # Should handle without crashing
         self.assertEqual(response.status_code, 200)
 
@@ -170,14 +170,14 @@ class TestConcurrency(unittest.TestCase):
             "take pack",
             "inventory",
         ]
-        
+
         for cmd in commands:
             response = requests.post(
                 f"{BASE_URL}/game/{self.game_id}/command",
                 json={"command": cmd},
                 timeout=TIMEOUT
             )
-            
+
             # All should succeed
             self.assertEqual(response.status_code, 200)
             self.assertIn("response", response.json())

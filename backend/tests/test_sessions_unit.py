@@ -72,7 +72,10 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["turn"], 1)
-        self.assertEqual(data["response"], "Received command 'look'. (Command processing not yet implemented.)")
+        # Should get actual game narrative, not placeholder
+        self.assertIn("response", data)
+        self.assertIsInstance(data["response"], str)
+        self.assertGreater(len(data["response"]), 0)
 
         # Verify get_session was called with correct game_id
         mock_get_session.assert_called_once_with("test-game-123")

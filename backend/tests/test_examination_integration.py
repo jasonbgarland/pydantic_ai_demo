@@ -28,10 +28,10 @@ class TestExamination(unittest.TestCase):
             json={"command": "examine ancient carved symbols"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         description = data["response"]
-        
+
         # Verify substantive content
         self.assertGreater(len(description), 100)
         # No bullet points
@@ -46,10 +46,10 @@ class TestExamination(unittest.TestCase):
             json={"command": "examine leather pack"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         description = data["response"].lower()
-        
+
         # Should mention the pack
         self.assertIn("pack", description)
         # Should NOT be a long description mentioning rope AND torch AND pack
@@ -65,10 +65,10 @@ class TestExamination(unittest.TestCase):
             json={"command": "examine invisible clown"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         description = data["response"].lower()
-        
+
         # Should give "not found" type message
         self.assertTrue(
             "don't see" in description or "not" in description,
@@ -84,7 +84,7 @@ class TestExamination(unittest.TestCase):
             json={"command": "examine healing potion"},  # In Hidden Alcove
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         # Should either not find it or give generic response
         # (not detailed potion description)
@@ -97,10 +97,10 @@ class TestExamination(unittest.TestCase):
             json={"command": "look around"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         description = data["response"]
-        
+
         # Should get room description
         self.assertGreater(len(description), 50)
         # No markdown or bullets
@@ -129,14 +129,14 @@ class TestContentQuality(unittest.TestCase):
             "examine walls",
             "inventory"
         ]
-        
+
         for cmd in commands:
             response = requests.post(
                 f"{BASE_URL}/game/{self.game_id}/command",
                 json={"command": cmd},
                 timeout=TIMEOUT
             )
-            
+
             description = response.json()["response"]
             self.assertNotIn("# ", description,
                            f"Command '{cmd}' returned markdown header")
@@ -150,7 +150,7 @@ class TestContentQuality(unittest.TestCase):
             json={"command": "go north"},
             timeout=TIMEOUT
         )
-        
+
         description = response.json()["response"]
         # Check for bullet points at start of lines
         lines = description.split('\n')
@@ -165,10 +165,10 @@ class TestContentQuality(unittest.TestCase):
             json={"command": "look around"},
             timeout=TIMEOUT
         )
-        
+
         description = response.json()["response"]
         metadata_keywords = ["## Items:", "## Location:", "## Connections:", ":**"]
-        
+
         for keyword in metadata_keywords:
             self.assertNotIn(keyword, description,
                            f"Found metadata keyword: {keyword}")
@@ -180,7 +180,7 @@ class TestContentQuality(unittest.TestCase):
             json={"command": "go north"},
             timeout=TIMEOUT
         )
-        
+
         description = response.json()["response"]
         # Should be substantive but not overwhelming
         self.assertGreater(len(description), 50, "Description too short")

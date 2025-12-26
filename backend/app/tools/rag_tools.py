@@ -155,17 +155,17 @@ def get_room_description(room_name: str) -> str:
     descriptions = query_world_lore("room description environment", room_name, max_results=5)
     if not descriptions:
         return f"You are in {room_name}."
-    
+
     # Filter and clean description chunks
     cleaned = []
     skip_sections = ['atmospheric details', 'utility benefits', 'discovery opportunities']
-    
+
     for desc in descriptions:
         # Skip chunks that are from special sections (they're more like metadata)
         desc_lower = desc.lower()
         if any(section in desc_lower for section in skip_sections):
             continue
-            
+
         # Remove lines starting with # (markdown headers) or - (bullet points from those sections)
         lines = []
         for line in desc.split('\n'):
@@ -181,23 +181,23 @@ def get_room_description(room_name: str) -> str:
                 continue
             if stripped:
                 lines.append(line)
-        
+
         cleaned_text = '\n'.join(lines).strip()
         if cleaned_text and len(cleaned_text) > 30:  # Only include substantial content
             cleaned.append(cleaned_text)
-    
+
     # Return up to 2 main descriptive paragraphs
     return " ".join(cleaned[:2]) if cleaned else f"You are in {room_name}."
 
 def find_items_in_location(location: str) -> List[str]:
     """Find items available in a specific location by parsing room metadata.
-    
+
     Returns a list of item names (e.g., ['rope', 'torch', 'leather_pack'])
     """
     # First try to parse from the markdown file directly
     normalized_location = normalize_location_name(location)
     world_data_path = Path(__file__).parent.parent / "world_data" / "rooms"
-    
+
     # Try to find the room file
     for room_file in world_data_path.glob("*.md"):
         with open(room_file, 'r', encoding='utf-8') as f:
@@ -215,7 +215,7 @@ def find_items_in_location(location: str) -> List[str]:
                                     # Parse comma-separated items
                                     return [item.strip() for item in items_str.split(',')]
                                 return []
-    
+
     # Fallback to RAG query if file parsing fails
     items = query_world_lore("items objects pickup treasure", location, max_results=3)
     return items

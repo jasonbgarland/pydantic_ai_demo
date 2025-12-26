@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useGame } from "@/hooks/useGame";
+import { useGameWebSocket } from "@/hooks/useGameWebSocket";
 import { GameScreen } from "@/components/GameScreen";
 
 interface CharacterClass {
@@ -47,15 +47,17 @@ export default function Home() {
   const [characterName, setCharacterName] = useState<string>("");
   const [character, setCharacter] = useState<Character | null>(null);
 
-  // Game state management hook
+  // Game state management hook with WebSocket
   const {
     session,
     narrative,
     isLoading,
+    isTyping,
+    isConnected,
+    error: gameError,
     initializeGame,
     executeCommand,
-    resetGame,
-  } = useGame();
+  } = useGameWebSocket();
 
   useEffect(() => {
     const checkBackendHealth = async () => {
@@ -142,16 +144,17 @@ export default function Home() {
   };
 
   const handleCommandExecute = async (command: string) => {
-    await executeCommand(command);
+    executeCommand(command); // WebSocket sends immediately, no await needed
   };
 
   const handleExitGame = () => {
     if (confirm("Are you sure you want to exit? Your progress will be lost.")) {
-      resetGame();
+      // Reset state manually since WebSocket hook doesn't have resetGame
       setGameState("main");
       setCharacter(null);
       setCharacterName("");
       setSelectedClass("");
+      window.location.reload(); // Simple way to reset all state including WebSocket
     }
   };
 
@@ -328,6 +331,8 @@ export default function Home() {
         session={session}
         narrative={narrative}
         isLoading={isLoading}
+        isTyping={isTyping}
+        isConnected={isConnected}
         onCommand={handleCommandExecute}
         onExit={handleExitGame}
       />

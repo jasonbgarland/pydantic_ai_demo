@@ -28,7 +28,7 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "take rope"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertTrue(data["success"])
         self.assertIn("rope", data["session"]["inventory"])
@@ -41,13 +41,13 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "go north"},
             timeout=TIMEOUT
         )
-        
+
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "take potion"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertTrue(data["success"])
         self.assertIn("healing_potion", data["session"]["inventory"])
@@ -59,7 +59,7 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "take leather pack"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertTrue(data["success"])
         self.assertIn("leather_pack", data["session"]["inventory"])
@@ -71,7 +71,7 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "take pizza"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertFalse(data["success"])
         self.assertIn("don't see", data["response"].lower())
@@ -84,7 +84,7 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "take healing_potion"},  # This is in Hidden Alcove
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertFalse(data["success"])
         self.assertEqual(len(data["session"]["inventory"]), 0)
@@ -98,14 +98,14 @@ class TestItemInteractions(unittest.TestCase):
             timeout=TIMEOUT
         )
         self.assertTrue(response1.json()["success"])
-        
+
         # Try to pick up rope again
         response2 = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "take rope"},
             timeout=TIMEOUT
         )
-        
+
         data = response2.json()
         self.assertFalse(data["success"])
         self.assertIn("already have", data["response"].lower())
@@ -118,7 +118,7 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "take rope and torch"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertFalse(data["success"])
         self.assertIn("one item at a time", data["response"].lower())
@@ -131,7 +131,7 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "take rope, torch"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertFalse(data["success"])
         self.assertIn("one item at a time", data["response"].lower())
@@ -149,14 +149,14 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "take torch"},
             timeout=TIMEOUT
         )
-        
+
         # Check inventory
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "inventory"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertIn("rope", data["session"]["inventory"])
         self.assertIn("torch", data["session"]["inventory"])
@@ -170,7 +170,7 @@ class TestItemInteractions(unittest.TestCase):
             json={"command": "inventory"},
             timeout=TIMEOUT
         )
-        
+
         data = response.json()
         self.assertIn("empty", data["response"].lower())
 
@@ -181,7 +181,7 @@ class TestItemInteractions(unittest.TestCase):
             "potion": "healing_potion",
             "gear": "climbing_gear",
         }
-        
+
         for alias, canonical in aliases.items():
             # Create new session
             response = requests.post(
@@ -190,7 +190,7 @@ class TestItemInteractions(unittest.TestCase):
                 timeout=TIMEOUT
             )
             game_id = response.json()["game_id"]
-            
+
             # Move to Hidden Alcove for most items
             if alias in ["potion", "gear"]:
                 requests.post(
@@ -198,14 +198,14 @@ class TestItemInteractions(unittest.TestCase):
                     json={"command": "go north"},
                     timeout=TIMEOUT
                 )
-            
+
             # Try to pick up using alias
             response = requests.post(
                 f"{BASE_URL}/game/{game_id}/command",
                 json={"command": f"take {alias}"},
                 timeout=TIMEOUT
             )
-            
+
             data = response.json()
             if data["success"]:
                 self.assertIn(canonical, data["session"]["inventory"],

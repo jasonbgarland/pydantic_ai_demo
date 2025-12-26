@@ -309,7 +309,7 @@ class InventoryManager:
 
     async def get_inventory_summary(self, current_inventory: List[str]) -> str:
         """Get a summary of the player's inventory.
-        
+
         This is an alias for list_inventory to maintain compatibility.
         """
         return await self.list_inventory(current_inventory)
