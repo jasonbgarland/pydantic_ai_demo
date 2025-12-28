@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useGameWebSocket } from "@/hooks/useGameWebSocket";
 import { GameScreen } from "@/components/GameScreen";
+import { LoadGameModal } from "@/components/LoadGameModal";
+import { saveGame, loadGame, listSavedGames, deleteSavedGame } from "@/lib/api";
 
 interface CharacterClass {
   name: string;
@@ -46,6 +48,7 @@ export default function Home() {
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [characterName, setCharacterName] = useState<string>("");
   const [character, setCharacter] = useState<Character | null>(null);
+  const [showLoadModal, setShowLoadModal] = useState(false);
 
   // Game state management hook with WebSocket
   const {
@@ -56,6 +59,7 @@ export default function Home() {
     isConnected,
     error: gameError,
     initializeGame,
+    loadGameSession,
     executeCommand,
   } = useGameWebSocket();
 
@@ -158,6 +162,55 @@ export default function Home() {
     }
   };
 
+  const handleSaveGame = async (sessionName: string) => {
+    if (!session) {
+      throw new Error("No active game session");
+    }
+
+    try {
+      await saveGame(session.game_id, sessionName);
+    } catch (error) {
+      console.error("Failed to save game:", error);
+      throw error;
+    }
+  };
+
+  const handleLoadGame = async (gameId: string) => {
+    try {
+      const result = await loadGame(gameId);
+
+      // Load existing game session (don't create new one)
+      loadGameSession(result.game_id, result.session);
+
+      // Set character and navigate to game screen
+      setCharacter(result.session.character);
+      setShowLoadModal(false);
+      setGameState("game");
+    } catch (error) {
+      console.error("Failed to load game:", error);
+      throw error;
+    }
+  };
+
+  const handleDeleteSave = async (gameId: string) => {
+    try {
+      await deleteSavedGame(gameId);
+    } catch (error) {
+      console.error("Failed to delete save:", error);
+      throw error;
+    }
+  };
+
+  const handleFetchSaves = async () => {
+    try {
+      const result = await listSavedGames();
+      return result.saves;
+    } catch (error) {
+      console.error("Failed to fetch saves:", error);
+      throw error;
+    }
+  };
+
   const renderMainScreen = () => (
     <div className="text-center">
       <h1 className="text-4xl font-bold mb-8">ADVENTURE ENGINE</h1>
@@ -191,9 +244,13 @@ export default function Home() {
           >
             &gt; START - Begin new adventure
           </button>
-          <p className="p-2 text-gray-500">
-            &gt; LOAD - Continue saved game (Coming soon)
-          </p>
+          <button
+            onClick={() => setShowLoadModal(true)}
+            className="block w-full text-left hover:bg-green-400 hover:text-black p-2"
+            disabled={backendStatus !== "connected"}
+          >
+            &gt; LOAD - Continue saved game
+          </button>
           <p className="p-2 text-gray-500">
             &gt; HELP - Show all commands (Coming soon)
           </p>
@@ -335,6 +392,10 @@ export default function Home() {
         isConnected={isConnected}
         onCommand={handleCommandExecute}
         onExit={handleExitGame}
+        onSave={handleSaveGame}
+        onLoad={handleLoadGame}
+        onDelete={handleDeleteSave}
+        onFetchSaves={handleFetchSaves}
       />
     );
   };
@@ -357,6 +418,15 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-black text-green-400 font-mono">
       {renderCurrentScreen()}
+
+      {/* Load Game Modal (available from main menu) */}
+      <LoadGameModal
+        isOpen={showLoadModal}
+        onClose={() => setShowLoadModal(false)}
+        onLoad={handleLoadGame}
+        onDelete={handleDeleteSave}
+        onFetchSaves={handleFetchSaves}
+      />
     </main>
   );
 }

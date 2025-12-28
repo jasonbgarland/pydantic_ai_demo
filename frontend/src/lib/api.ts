@@ -99,6 +99,93 @@ export async function getGameState(gameId: string): Promise<GameSession> {
 }
 
 /**
+ * Save game to database
+ */
+export async function saveGame(
+  gameId: string,
+  sessionName: string
+): Promise<{
+  game_id: string;
+  character_id: number;
+  session_name: string;
+  saved_at: string;
+}> {
+  const response = await fetch(`${API_BASE_URL}/game/${gameId}/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_name: sessionName }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save game: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Load game from database
+ */
+export async function loadGame(gameId: string): Promise<{
+  game_id: string;
+  session: GameSession;
+  message: string;
+}> {
+  const response = await fetch(`${API_BASE_URL}/game/${gameId}/load`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load game: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * List all saved games
+ */
+export async function listSavedGames(): Promise<{
+  saves: Array<{
+    game_id: string;
+    session_name: string;
+    character_name: string;
+    character_class: string;
+    level: number;
+    location: string;
+    turn_count: number;
+    last_played: string;
+    created_at: string;
+  }>;
+  count: number;
+}> {
+  const response = await fetch(`${API_BASE_URL}/game/saves`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to list saved games: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Delete a saved game
+ */
+export async function deleteSavedGame(gameId: string): Promise<{
+  message: string;
+}> {
+  const response = await fetch(`${API_BASE_URL}/game/${gameId}/save`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete saved game: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
  * Health check for backend
  */
 export async function checkHealth(): Promise<boolean> {

@@ -256,6 +256,28 @@ export function useGameWebSocket() {
   );
 
   /**
+   * Load an existing game session
+   */
+  const loadGameSession = useCallback(
+    (id: string, loadedSession: GameSession) => {
+      setGameId(id);
+      setSession(loadedSession);
+
+      // Create initial narrative from loaded state
+      setNarrative([
+        {
+          turn: 0,
+          response: `Game loaded. You are at ${loadedSession.location}. Turn ${loadedSession.turn_count}.`,
+        },
+      ]);
+
+      // Connect WebSocket for real-time updates
+      connectWebSocket(id);
+    },
+    [connectWebSocket]
+  );
+
+  /**
    * Cleanup on unmount
    */
   useEffect(() => {
@@ -278,6 +300,7 @@ export function useGameWebSocket() {
     isConnected,
     error,
     initializeGame,
+    loadGameSession,
     executeCommand,
   };
 }

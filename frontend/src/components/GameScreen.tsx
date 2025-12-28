@@ -6,6 +6,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { GameSession } from "@/lib/api";
+import { SaveGameModal } from "./SaveGameModal";
+import { LoadGameModal } from "./LoadGameModal";
 
 interface NarrativeEntry {
   turn: number;
@@ -23,6 +25,10 @@ interface GameScreenProps {
   isConnected?: boolean; // New: WebSocket connection status
   onCommand: (command: string) => Promise<void> | void; // Updated: can be sync for WebSocket
   onExit: () => void;
+  onSave?: (sessionName: string) => Promise<void>;
+  onLoad?: (gameId: string) => Promise<void>;
+  onDelete?: (gameId: string) => Promise<void>;
+  onFetchSaves?: () => Promise<any[]>;
 }
 
 export function GameScreen({
@@ -33,10 +39,16 @@ export function GameScreen({
   isConnected = true,
   onCommand,
   onExit,
+  onSave,
+  onLoad,
+  onDelete,
+  onFetchSaves,
 }: GameScreenProps) {
   const [commandInput, setCommandInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showLoadModal, setShowLoadModal] = useState(false);
   const narrativeEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -227,7 +239,7 @@ export function GameScreen({
       </form>
 
       {/* Quick Commands */}
-      <div className="grid grid-cols-4 gap-2 mb-4">
+      <div className="grid grid-cols-6 gap-2 mb-4">
         <button
           onClick={() => onCommand("look around")}
           disabled={isLoading}
@@ -249,6 +261,24 @@ export function GameScreen({
         >
           Examine
         </button>
+        {onSave && (
+          <button
+            onClick={() => setShowSaveModal(true)}
+            disabled={isLoading}
+            className="border border-blue-400 text-blue-400 p-2 hover:bg-blue-400 hover:text-black disabled:opacity-50 text-sm"
+          >
+            Save Game
+          </button>
+        )}
+        {onLoad && onFetchSaves && (
+          <button
+            onClick={() => setShowLoadModal(true)}
+            disabled={isLoading}
+            className="border border-purple-400 text-purple-400 p-2 hover:bg-purple-400 hover:text-black disabled:opacity-50 text-sm"
+          >
+            Load Game
+          </button>
+        )}
         <button
           onClick={onExit}
           className="border border-red-400 text-red-400 p-2 hover:bg-red-400 hover:text-black text-sm"
@@ -271,6 +301,25 @@ export function GameScreen({
           <p>• drop [item] - Drop an item</p>
         </div>
       </div>
+
+      {/* Save/Load Modals */}
+      {onSave && (
+        <SaveGameModal
+          gameId={session.game_id}
+          isOpen={showSaveModal}
+          onClose={() => setShowSaveModal(false)}
+          onSave={onSave}
+        />
+      )}
+      {onLoad && onDelete && onFetchSaves && (
+        <LoadGameModal
+          isOpen={showLoadModal}
+          onClose={() => setShowLoadModal(false)}
+          onLoad={onLoad}
+          onDelete={onDelete}
+          onFetchSaves={onFetchSaves}
+        />
+      )}
     </div>
   );
 }
