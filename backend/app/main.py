@@ -8,16 +8,26 @@ from enum import Enum
 from typing import Dict, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import redis.asyncio as aioredis
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Import adventure agents
 from app.agents.adventure_narrator import AdventureNarrator
 from app.agents.room_descriptor import RoomDescriptor
 from app.agents.inventory_manager import InventoryManager
 from app.agents.entity_manager import EntityManager
+
+# Import database models and session
+from app.db import get_db, init_db
+from app.models.database import (
+    Character as DBCharacter,
+    GameSession as DBGameSession,
+    Discovery
+)
 
 # Load environment variables
 load_dotenv()
@@ -459,3 +469,255 @@ async def websocket_game_endpoint(websocket: WebSocket, game_id: str):
             "message": f"WebSocket error: {str(exc)}"
         })
         await websocket.close()
+
+
+# ============================================================================
+# PERSISTENT SAVE/LOAD ENDPOINTS
+# ============================================================================
+
+class SaveGameRequest(BaseModel):
+    """Request to save game to PostgreSQL."""
+    session_name: Optional[str] = None
+
+
+class SaveGameResponse(BaseModel):
+    """Response after saving game."""
+    game_id: str
+    character_id: str
+    session_name: str
+    saved_at: str
+
+
+@app.post("/game/{game_id}/save", response_model=SaveGameResponse)
+async def save_game_to_database(
+    game_id: str,
+    request: SaveGameRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Save current game session to PostgreSQL for long-term persistence.
+
+    This creates/updates:
+    - Character record (if new)
+    - GameSession record with full state
+    - Discovery records for all discovered locations/items
+    """
+    # Get current session from Redis
+    session = await get_session(game_id)
+    if not session:
+        return {"error": "session_not_found", "message": "Game session not found"}
+
+    character_data = session.get("character", {})
+    character_id = str(uuid.uuid4())
+
+    # Check if character already exists in database
+    result = await db.execute(
+        select(DBCharacter).where(DBCharacter.name == character_data["name"])
+    )
+    existing_char = result.scalars().first()
+
+    if existing_char:
+        character_id = existing_char.id
+        # Update character stats
+        existing_char.level = character_data.get("level", 1)
+        existing_char.stats = character_data.get("stats", {})
+        existing_char.updated_at = datetime.utcnow()
+    else:
+        # Create new character
+        new_character = DBCharacter(
+            id=character_id,
+            name=character_data["name"],
+            character_class=character_data["character_class"],
+            stats=character_data.get("stats", {}),
+            level=character_data.get("level", 1)
+        )
+        db.add(new_character)
+
+    # Create or update game session
+    result = await db.execute(
+        select(DBGameSession).where(DBGameSession.id == game_id)
+    )
+    existing_session = result.scalars().first()
+
+    session_name = request.session_name or f"Adventure - {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+
+    if existing_session:
+        # Update existing session
+        existing_session.current_location = session.get("location", "cave_entrance")
+        existing_session.inventory = session.get("inventory", [])
+        existing_session.turn_count = session.get("turn_count", 0)
+        existing_session.session_name = session_name
+        existing_session.last_played = datetime.utcnow()
+        existing_session.state_snapshot = session
+    else:
+        # Create new session record
+        new_session = DBGameSession(
+            id=game_id,
+            character_id=character_id,
+            current_location=session.get("location", "cave_entrance"),
+            inventory=session.get("inventory", []),
+            turn_count=session.get("turn_count", 0),
+            session_name=session_name,
+            is_active=True,
+            state_snapshot=session
+        )
+        db.add(new_session)
+
+    # Save discoveries
+    discovered_rooms = session.get("discovered", [])
+    for room_id in discovered_rooms:
+        # Check if already recorded
+        result = await db.execute(
+            select(Discovery).where(
+                Discovery.game_session_id == game_id,
+                Discovery.entity_id == room_id
+            )
+        )
+        if not result.scalars().first():
+            discovery = Discovery(
+                game_session_id=game_id,
+                discovery_type="room",
+                entity_id=room_id,
+                display_name=room_id.replace("_", " ").title(),
+                turn_number=session.get("turn_count", 0)
+            )
+            db.add(discovery)
+
+    await db.commit()
+
+    return SaveGameResponse(
+        game_id=game_id,
+        character_id=character_id,
+        session_name=session_name,
+        saved_at=datetime.utcnow().isoformat() + "Z"
+    )
+
+
+@app.get("/game/saves")
+async def list_saved_games(db: AsyncSession = Depends(get_db)):
+    """List all saved games from PostgreSQL."""
+    result = await db.execute(
+        select(DBGameSession, DBCharacter)
+        .join(DBCharacter)
+        .where(DBGameSession.is_active.is_(True))
+        .order_by(DBGameSession.last_played.desc())
+    )
+
+    saves = []
+    for session, character in result.all():
+        saves.append({
+            "game_id": session.id,
+            "session_name": session.session_name,
+            "character_name": character.name,
+            "character_class": character.character_class,
+            "level": character.level,
+            "location": session.current_location,
+            "turn_count": session.turn_count,
+            "last_played": session.last_played.isoformat() + "Z" if session.last_played else None,
+            "created_at": session.created_at.isoformat() + "Z" if session.created_at else None
+        })
+
+    return {"saves": saves, "count": len(saves)}
+
+
+@app.post("/game/{game_id}/load")
+async def load_game_from_database(
+    game_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Load a saved game from PostgreSQL into Redis for active play.
+
+    This restores:
+    - Full session state
+    - Character data
+    - Discoveries
+    """
+    # Fetch session from database
+    result = await db.execute(
+        select(DBGameSession, DBCharacter)
+        .join(DBCharacter)
+        .where(DBGameSession.id == game_id)
+    )
+    row = result.first()
+
+    if not row:
+        return {"error": "save_not_found", "message": "Saved game not found"}
+
+    db_session, db_character = row
+
+    # Restore session to Redis
+    session = db_session.state_snapshot or {
+        "game_id": game_id,
+        "character": {
+            "name": db_character.name,
+            "character_class": db_character.character_class,
+            "stats": db_character.stats,
+            "level": db_character.level
+        },
+        "location": db_session.current_location,
+        "inventory": db_session.inventory or [],
+        "turn_count": db_session.turn_count or 0,
+        "discovered": [],
+        "history": [],
+        "temp_flags": {}
+    }
+
+    # Load discoveries
+    result = await db.execute(
+        select(Discovery)
+        .where(Discovery.game_session_id == game_id)
+        .where(Discovery.discovery_type == "room")
+    )
+    discoveries = result.scalars().all()
+    session["discovered"] = [d.entity_id for d in discoveries]
+
+    # Update timestamps
+    session["created_at"] = db_session.created_at.isoformat() + "Z" if db_session.created_at else datetime.utcnow().isoformat() + "Z"
+    session["updated_at"] = datetime.utcnow().isoformat() + "Z"
+
+    # Save to Redis
+    await redis_client.set(f"session:{game_id}", json.dumps(session))
+
+    # Update last_played timestamp
+    db_session.last_played = datetime.utcnow()
+    await db.commit()
+
+    return {
+        "success": True,
+        "game_id": game_id,
+        "session": session,
+        "message": f"Loaded save: {db_session.session_name}"
+    }
+
+
+@app.delete("/game/{game_id}/save")
+async def delete_saved_game(
+    game_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a saved game from PostgreSQL."""
+    result = await db.execute(
+        select(DBGameSession).where(DBGameSession.id == game_id)
+    )
+    session = result.scalars().first()
+
+    if not session:
+        return {"error": "save_not_found", "message": "Saved game not found"}
+
+    # Mark as inactive instead of deleting (soft delete)
+    session.is_active = False
+    await db.commit()
+
+    return {
+        "success": True,
+        "game_id": game_id,
+        "message": "Save deleted successfully"
+    }
+
+
+# Initialize database tables on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database tables if they don't exist."""
+    await init_db()
