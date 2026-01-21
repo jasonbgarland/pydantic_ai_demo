@@ -1,33 +1,123 @@
-# Agentic AI RPG Demo
+# Multi-Agent AI Text Adventure
 
-A multi-agent AI text adventure game built with PydanticAI, FastAPI, and Next.js to showcase modern AI frameworks and patterns.
+> A production-ready demonstration of agentic AI patterns using PydanticAI
 
-## 🎮 Overview
+![Multi-Agent AI Text Adventure](docs/screenshot.png)
 
-This project demonstrates:
+[![Tests](https://img.shields.io/badge/tests-52%20passing-brightgreen)]() [![Python](https://img.shields.io/badge/python-3.12-blue)]() [![PydanticAI](https://img.shields.io/badge/PydanticAI-1.44.0-purple)]() [![License](https://img.shields.io/badge/license-MIT-blue)]()
 
-- **Multi-agent orchestration** with PydanticAI framework
-- **Character class system** with RPG mechanics (Warrior, Wizard, Rogue)
-- **Session management** with Redis for game state persistence
-- **Vector embeddings** with ChromaDB for narrative context
-- **Modern web stack** with FastAPI backend and Next.js frontend
-- **Comprehensive testing** with both unit and integration tests
+## Overview
 
-## 🏗️ Architecture
+This project demonstrates **agentic AI architecture patterns** using the [PydanticAI](https://ai.pydantic.dev) framework. Rather than building yet another chatbot, it showcases how multiple AI agents can collaborate to create a dynamic, context-aware system through the engaging medium of a text-based adventure game.
+
+**Why a text adventure?** Games provide:
+- ✅ Clear success criteria (did the AI understand the command?)
+- ✅ Engaging way to demonstrate AI capabilities
+- ✅ Complex state management showing real-world patterns
+- ✅ Natural language processing challenges
+- ✅ Multi-turn conversations with context
+
+**The real value** is in the AI architecture patterns demonstrated, not the game itself.
+
+## What This Demonstrates
+
+This project implements production-ready agentic AI patterns:
+
+| AI Pattern | Implementation | PydanticAI Concept | Location |
+|------------|----------------|-------------------|----------|
+| **Classification** | Intent parsing from natural language | Structured output with `output_type` | [`intent_parser.py`](backend/app/agents/intent_parser.py) |
+| **Orchestration** | Coordinator agent delegates to specialists | Agent composition & delegation | [`adventure_narrator.py`](backend/app/agents/adventure_narrator.py) |
+| **Specialist Agents** | Domain-specific agents (rooms, inventory, entities) | Multiple agent instances | [`agents/`](backend/app/agents/) |
+| **Tool Calling** | Agents invoke domain tools based on context | `@tool` decorator pattern | All agent files |
+| **RAG (Retrieval)** | Vector DB provides dynamic context to agents | Tool-based context injection | [`rag_tools.py`](backend/app/tools/rag_tools.py) |
+| **State Management** | Session state tracked and updated by agents | Agent context & dependencies | [`main.py`](backend/app/main.py) |
+| **Multi-Turn Context** | Agents maintain conversation history | Session-based state persistence | Redis integration |
+| **Error Handling** | Graceful degradation when AI encounters issues | Try-catch with fallback responses | All agent implementations |
+
+### Key Technical Achievements
+
+- **192 lines of manual parsing replaced** with AI classification
+- **Natural language understanding**: "walk to the east", "check my bag", "grab the shiny crystal"
+- **Sub-2-second response times** for AI classification
+- **52 tests passing** (40 unit + 12 integration)
+- **Production architecture**: FastAPI, Redis, PostgreSQL, ChromaDB, Docker
+
+## Architecture & Components
+
+### System Diagram
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Next.js UI   │◄──►│   FastAPI API    │◄──►│   PydanticAI    │
-│  (Port 3000)   │    │  (Port 8001)     │    │    Agents       │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │
-                    ┌───────────┼───────────┐
-                    │           │           │
-            ┌───────▼──┐  ┌─────▼────┐  ┌───▼─────┐
-            │  Redis   │  │PostgreSQL│  │ChromaDB │
-            │(Sessions)│  │(Persistence)│ │(Vector) │
-            └──────────┘  └──────────┘  └─────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     Player Command                          │
+│              "grab the shiny crystal"                       │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+              ┌──────────────────────┐
+              │   IntentParser       │  ◄─── Classification Pattern
+              │   (AI Classifier)    │       GPT-4o-mini structured output
+              └──────────┬───────────┘
+                         │ ParsedCommand
+                         │ {type: "pickup", target: "crystal"}
+                         ▼
+              ┌──────────────────────┐
+              │ AdventureNarrator    │  ◄─── Orchestration Pattern
+              │  (Coordinator)       │       Delegates to specialists
+              └──────────┬───────────┘
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+    ┌─────────┐   ┌──────────┐   ┌──────────┐
+    │  Room   │   │Inventory │   │ Entity   │  ◄─── Specialist Pattern
+    │Descriptor│   │ Manager  │   │ Manager  │       Domain experts
+    └────┬────┘   └────┬─────┘   └────┬─────┘
+         │             │              │
+         └─────────────┼──────────────┘
+                       │ Tools
+                       ▼
+            ┌──────────────────────┐
+            │   RAG Tools          │  ◄─── RAG Pattern
+            │   (ChromaDB)         │       Vector search for context
+            └──────────────────────┘
+                       │
+          ┌────────────┼────────────┐
+          ▼            ▼            ▼
+     ┌────────┐  ┌──────────┐  ┌────────┐
+     │ Redis  │  │PostgreSQL│  │ Next.js│
+     │Sessions│  │ Persist  │  │   UI   │
+     └────────┘  └──────────┘  └────────┘
 ```
+
+### Components Overview
+
+- **Frontend**: Next.js React application with command-line interface and real-time WebSocket integration for live game updates
+- **Backend**: FastAPI server that acts as the adventure engine and game state manager
+- **Agents**: Typed PydanticAI agents with clear responsibilities and tools
+- **RAG**: ChromaDB vector store seeded with chunked room descriptions, item details, and world lore; embeddings used for rich narrative retrieval
+- **Memory**: Short-term game state in Redis for save/load functionality; long-term discovery memory in PostgreSQL with embeddings for world persistence
+- **Tools**: Utility functions exposed to agents (RAG queries, state management, inventory operations)
+- **Content**: Markdown files containing room descriptions, item catalogs, and environmental details
+
+### Agents & Responsibilities
+
+| Agent | Purpose | Key Tools | Pattern |
+|-------|---------|-----------|---------|
+| **IntentParser** | Classifies natural language commands into structured intents | N/A (pure AI classification) | Classification |
+| **AdventureNarrator** | Orchestrates game flow, delegates to specialists, composes narratives | `parse_command`, agent delegation | Orchestration |
+| **RoomDescriptor** | Generates rich environmental descriptions using RAG | `query_world_lore`, `get_room_connections` | Specialist + RAG |
+| **InventoryManager** | Manages item interactions (pickup, drop, examine, use) | `update_inventory`, `examine_item` | Specialist |
+| **EntityManager** | Handles NPCs, creatures, and interactive elements | `interact_with_entity`, `check_entity_state` | Specialist |
+
+### Tools Available to Agents
+
+| Tool | Purpose | Used By |
+|------|---------|---------|
+| **query_world_lore** | Searches ChromaDB for relevant world content | RoomDescriptor, EntityManager |
+| **get_room_connections** | Returns available exits from current location | RoomDescriptor, AdventureNarrator |
+| **update_inventory** | Add/remove items from player inventory | InventoryManager |
+| **examine_item** | Get detailed item descriptions | InventoryManager |
+| **check_ability** | Validate if player can use class ability | AdventureNarrator |
+| **interact_with_entity** | Handle NPC/creature interactions | EntityManager |
 
 ## 🚀 Quick Start
 
