@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Dict, Optional, List, Any
 from pydantic import BaseModel, Field
 
-from app.mechanics import AbilitySystem
+from app.mechanics import SimpleAbilitySystem
 
 
 class CommandType(str, Enum):
@@ -348,34 +348,6 @@ class AdventureNarrator:
         current_location = game_state.get('location', 'unknown')
         direction = command.direction or 'somewhere'
 
-        # Special handling for "cross chasm" - use rope if anchored
-        if direction.lower() == 'chasm' and current_location == 'yawning_chasm':
-            from app.mechanics import RopeSystem
-
-            # If rope is anchored, use it to cross
-            if RopeSystem.is_rope_anchored(game_state):
-                use_result = RopeSystem.use_rope(game_state)
-                state_updates = use_result.get("effects", {})
-
-                return GameResponse(
-                    agent="RopeSystem",
-                    narrative=use_result["narrative"],
-                    success=use_result["success"],
-                    game_state_updates=state_updates,
-                    metadata={'action': 'cross_chasm_with_rope'}
-                )
-
-            # No rope anchored - give helpful error
-            return GameResponse(
-                agent="AdventureNarrator",
-                narrative=(
-                    "You need to anchor your rope first before crossing the chasm. "
-                    "Try 'use rope' to secure it, or use your abilities or grappling hook."
-                ),
-                success=False,
-                metadata={'action': 'cross_chasm_failed', 'reason': 'no_rope_anchored'}
-            )
-
         if self.room_descriptor:
             try:
                 movement_result = await self.room_descriptor.handle_movement(
@@ -462,54 +434,11 @@ class AdventureNarrator:
     async def _handle_item_interaction(
         self, command: ParsedCommand, game_state: Dict[str, Any]
     ) -> GameResponse:
-        """Handle item interactions by delegating to InventoryManager or special systems."""
+        """Handle item interactions by delegating to InventoryManager."""
         target = command.target or 'something'
         action = command.action
         current_inventory = game_state.get('inventory', [])
         current_location = game_state.get('location', '')
-
-        # Special handling for grappling hook at the chasm
-        if action in ['use', 'utilize', 'activate', 'apply', 'secure', 'anchor'] and 'grappl' in target.lower():
-            from app.mechanics import GrappleSystem
-
-            use_result = GrappleSystem.use_grapple(game_state)
-            state_updates = use_result.get("effects", {})
-
-            return GameResponse(
-                agent="GrappleSystem",
-                narrative=use_result["narrative"],
-                success=use_result["success"],
-                game_state_updates=state_updates,
-                metadata={'action': 'use_grappling_hook'}
-            )
-
-        # Special handling for rope at the chasm
-        if action in ['use', 'utilize', 'activate', 'apply', 'secure', 'anchor'] and 'rope' in target.lower():
-            from app.mechanics import RopeSystem
-
-            # Try to anchor rope first (if not already anchored)
-            if not RopeSystem.is_rope_anchored(game_state):
-                anchor_result = RopeSystem.anchor_rope(game_state)
-                if anchor_result["success"]:
-                    return GameResponse(
-                        agent="RopeSystem",
-                        narrative=anchor_result["narrative"],
-                        success=True,
-                        metadata={'action': 'anchor_rope'}
-                    )
-                # If can't anchor, try to use (will explain why)
-
-            # Try to use rope to cross
-            use_result = RopeSystem.use_rope(game_state)
-            state_updates = use_result.get("effects", {})
-
-            return GameResponse(
-                agent="RopeSystem",
-                narrative=use_result["narrative"],
-                success=use_result["success"],
-                game_state_updates=state_updates,
-                metadata={'action': 'use_rope'}
-            )
 
         if self.inventory_manager:
             try:
@@ -630,17 +559,17 @@ class AdventureNarrator:
     async def _handle_ability(
         self, command: ParsedCommand, game_state: Dict[str, Any]
     ) -> GameResponse:
-        """Handle ability usage by delegating to the AbilitySystem."""
+        """Handle ability usage by delegating to the SimpleAbilitySystem."""
         ability_name = command.parameters.get("ability_name", "")
         character = game_state.get("character", {})
-        character_class = character.get("character_class", "warrior")
+        character_class = character.get("character_class", "Warrior")
 
         # Parse ability command to check if valid
-        parse_result = AbilitySystem.parse_ability_command(ability_name, character_class)
+        parse_result = SimpleAbilitySystem.parse_ability_command(ability_name, character_class)
 
         if not parse_result["is_ability"]:
             return GameResponse(
-                agent="AbilitySystem",
+                agent="SimpleAbilitySystem",
                 narrative=f"'{ability_name}' is not a recognized ability for {character_class}s.",
                 success=False,
                 metadata={"ability_name": ability_name, "character_class": character_class}
@@ -648,37 +577,19 @@ class AdventureNarrator:
 
         actual_ability = parse_result["ability_name"]
 
-        # Check if ability can be used
-        can_use = AbilitySystem.can_use_ability(
-            actual_ability,
-            character_class,
-            game_state.get("location", "unknown")
-        )
-
-        if not can_use["can_use"]:
-            return GameResponse(
-                agent="AbilitySystem",
-                narrative=can_use.get("reason", "You cannot use that ability right now."),
-                success=False,
-                metadata={"ability_name": actual_ability, "reason": can_use.get("reason")}
-            )
-
-        # Execute the ability
-        ability_result = AbilitySystem.execute_ability(
+        # Use the ability
+        ability_result = SimpleAbilitySystem.use_ability(
             actual_ability,
             character_class,
             game_state
         )
 
-        # Apply state updates from ability execution
-        state_updates = ability_result.get("state_changes", {})
-
         return GameResponse(
-            agent="AbilitySystem",
-            narrative=ability_result.get("narrative", f"You use {actual_ability}!"),
-            game_state_updates=state_updates,
-            success=ability_result.get("success", True),
-            metadata={"ability_name": actual_ability, "result": ability_result}
+            agent="SimpleAbilitySystem",
+            narrative=ability_result["narrative"],
+            game_state_updates=ability_result.get("effects", {}),
+            success=ability_result["success"],
+            metadata={"ability_name": actual_ability}
         )
 
     async def call_agents(self, agent_name: str, method_name: str, *args, **kwargs):

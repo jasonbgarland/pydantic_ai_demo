@@ -17,8 +17,6 @@ from pydantic import BaseModel, Field
 
 # Import RAG tools
 from app.tools.rag_tools import query_world_lore, get_room_description as rag_get_room_description
-# Import environmental state
-from app.mechanics import EnvironmentalState
 
 # Load environment variables
 load_dotenv()
@@ -168,14 +166,6 @@ class RoomDescriptor:
             inventory = game_state.get('inventory', [])
             if inventory:
                 description = self._filter_picked_up_items(description, inventory)
-
-        # Add environmental modifiers if collapse is active
-        if game_state and EnvironmentalState.should_apply_environmental_modifier(
-            game_state, location
-        ):
-            env_modifier = EnvironmentalState.get_room_modifier(game_state)
-            if env_modifier:
-                description = f"{description}\n\n{env_modifier}"
 
         return description
 

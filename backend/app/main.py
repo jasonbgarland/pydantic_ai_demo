@@ -31,11 +31,8 @@ from app.models.database import (
 
 # Import game mechanics
 from app.mechanics import (
-    CollapseManager,
-    DamageSystem,
     GameStatus,
     initialize_game_mechanics,
-    should_trigger_collapse,
     update_game_status
 )
 
@@ -284,15 +281,6 @@ async def process_command(game_id: str, command: GameCommand):
     history.append({"turn": session["turn_count"], "command": command.command,
                    "params": command.parameters})
 
-    # Increment collapse turn counter if collapse is active BEFORE command processing
-    collapse_was_active = CollapseManager.is_collapse_active(session)
-    if collapse_was_active:
-        CollapseManager.increment_collapse_turn(session)
-
-    # Apply environmental damage during collapse (before command)
-    damage_result = DamageSystem.apply_environmental_damage(session)
-    damage_narrative = damage_result.get("narrative", "")
-
     try:
         # Parse command using AdventureNarrator
         parsed_command = adventure_narrator.parse_command(command.command, command.parameters)
@@ -319,24 +307,8 @@ async def process_command(game_id: str, command: GameCommand):
             for key, value in game_response.game_state_updates.items():
                 session[key] = value
 
-        # Check if command should trigger collapse AFTER inventory is updated
-        collapse_narrative = ""
-        if should_trigger_collapse(command.command, session):
-            collapse_narrative = CollapseManager.trigger_collapse(session)
-
-        # Add collapse narrative if triggered or ongoing
+        # Use the narrative from the agent response
         full_narrative = game_response.narrative
-        if collapse_narrative:
-            full_narrative = f"{game_response.narrative}\n\n{collapse_narrative}"
-        elif CollapseManager.is_collapse_active(session):
-            # Add ongoing collapse warnings
-            collapse_warning = CollapseManager.get_collapse_narrative(session)
-            if collapse_warning:
-                full_narrative = f"{collapse_warning}\n\n{game_response.narrative}"
-
-        # Add damage narrative if damage occurred
-        if damage_narrative:
-            full_narrative = f"{full_narrative}\n\n{damage_narrative}"
 
         # Check for victory or defeat conditions
         status_narrative = update_game_status(session)
