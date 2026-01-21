@@ -11,6 +11,7 @@
 This project demonstrates **agentic AI architecture patterns** using the [PydanticAI](https://ai.pydantic.dev) framework. Rather than building yet another chatbot, it showcases how multiple AI agents can collaborate to create a dynamic, context-aware system through the engaging medium of a text-based adventure game.
 
 **Why a text adventure?** Games provide:
+
 - ✅ Clear success criteria (did the AI understand the command?)
 - ✅ Engaging way to demonstrate AI capabilities
 - ✅ Complex state management showing real-world patterns
@@ -21,71 +22,79 @@ This project demonstrates **agentic AI architecture patterns** using the [Pydant
 
 ## What This Demonstrates
 
-This project implements production-ready agentic AI patterns:
+This project implements agentic AI capabilities:
 
-| AI Pattern | Implementation | PydanticAI Concept | Location |
-|------------|----------------|-------------------|----------|
-| **Classification** | Intent parsing from natural language | Structured output with `output_type` | [`intent_parser.py`](backend/app/agents/intent_parser.py) |
-| **Orchestration** | Coordinator agent delegates to specialists | Agent composition & delegation | [`adventure_narrator.py`](backend/app/agents/adventure_narrator.py) |
-| **Specialist Agents** | Domain-specific agents (rooms, inventory, entities) | Multiple agent instances | [`agents/`](backend/app/agents/) |
-| **Tool Calling** | Agents invoke domain tools based on context | `@tool` decorator pattern | All agent files |
-| **RAG (Retrieval)** | Vector DB provides dynamic context to agents | Tool-based context injection | [`rag_tools.py`](backend/app/tools/rag_tools.py) |
-| **State Management** | Session state tracked and updated by agents | Agent context & dependencies | [`main.py`](backend/app/main.py) |
-| **Multi-Turn Context** | Agents maintain conversation history | Session-based state persistence | Redis integration |
-| **Error Handling** | Graceful degradation when AI encounters issues | Try-catch with fallback responses | All agent implementations |
-
-### Key Technical Achievements
-
-- **192 lines of manual parsing replaced** with AI classification
-- **Natural language understanding**: "walk to the east", "check my bag", "grab the shiny crystal"
-- **Sub-2-second response times** for AI classification
-- **52 tests passing** (40 unit + 12 integration)
-- **Production architecture**: FastAPI, Redis, PostgreSQL, ChromaDB, Docker
+| AI Pattern             | Implementation                                      | PydanticAI Concept                   | Location                                                            |
+| ---------------------- | --------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
+| **Classification**     | Intent parsing from natural language                | Structured output with `output_type` | [`intent_parser.py`](backend/app/agents/intent_parser.py)           |
+| **Orchestration**      | Coordinator agent delegates to specialists          | Agent composition & delegation       | [`adventure_narrator.py`](backend/app/agents/adventure_narrator.py) |
+| **Specialist Agents**  | Domain-specific agents (rooms, inventory, entities) | Multiple agent instances             | [`agents/`](backend/app/agents/)                                    |
+| **Tool Calling**       | Agents invoke domain tools based on context         | `@tool` decorator pattern            | All agent files                                                     |
+| **RAG (Retrieval)**    | Vector DB provides dynamic context to agents        | Tool-based context injection         | [`rag_tools.py`](backend/app/tools/rag_tools.py)                    |
+| **State Management**   | Session state tracked and updated by agents         | Agent context & dependencies         | [`main.py`](backend/app/main.py)                                    |
+| **Multi-Turn Context** | Agents maintain conversation history                | Session-based state persistence      | Redis integration                                                   |
+| **Error Handling**     | Graceful degradation when AI encounters issues      | Try-catch with fallback responses    | All agent implementations                                           |
 
 ## Architecture & Components
 
 ### System Diagram
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Player Command                          │
-│              "grab the shiny crystal"                       │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-              ┌──────────────────────┐
-              │   IntentParser       │  ◄─── Classification Pattern
-              │   (AI Classifier)    │       GPT-4o-mini structured output
-              └──────────┬───────────┘
-                         │ ParsedCommand
-                         │ {type: "pickup", target: "crystal"}
-                         ▼
-              ┌──────────────────────┐
-              │ AdventureNarrator    │  ◄─── Orchestration Pattern
-              │  (Coordinator)       │       Delegates to specialists
-              └──────────┬───────────┘
-                         │
-          ┌──────────────┼──────────────┐
-          ▼              ▼              ▼
-    ┌─────────┐   ┌──────────┐   ┌──────────┐
-    │  Room   │   │Inventory │   │ Entity   │  ◄─── Specialist Pattern
-    │Descriptor│   │ Manager  │   │ Manager  │       Domain experts
-    └────┬────┘   └────┬─────┘   └────┬─────┘
-         │             │              │
-         └─────────────┼──────────────┘
-                       │ Tools
-                       ▼
-            ┌──────────────────────┐
-            │   RAG Tools          │  ◄─── RAG Pattern
-            │   (ChromaDB)         │       Vector search for context
-            └──────────────────────┘
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-     ┌────────┐  ┌──────────┐  ┌────────┐
-     │ Redis  │  │PostgreSQL│  │ Next.js│
-     │Sessions│  │ Persist  │  │   UI   │
-     └────────┘  └──────────┘  └────────┘
+```mermaid
+graph TB
+    Player[👤 Player Command<br/>'grab the shiny crystal']
+
+    subgraph Classification["🎯 Classification Pattern"]
+        IntentParser[IntentParser Agent<br/>GPT-4o-mini]
+    end
+
+    subgraph Orchestration["🎭 Orchestration Pattern"]
+        Narrator[AdventureNarrator<br/>Coordinator & Composer]
+    end
+
+    subgraph Specialists["⚙️ Specialist Pattern"]
+        Room[RoomDescriptor<br/>Environment Expert]
+        Inventory[InventoryManager<br/>Items Expert]
+        Entity[EntityManager<br/>NPC/Creature Expert]
+    end
+
+    subgraph RAG["📚 RAG Pattern"]
+        Tools[RAG Tools<br/>ChromaDB Vector Search]
+    end
+
+    subgraph Storage["💾 Persistence Layer"]
+        Redis[(Redis<br/>Sessions)]
+        Postgres[(PostgreSQL<br/>Game State)]
+    end
+
+    subgraph Frontend["🖥️ Presentation"]
+        UI[Next.js WebSocket UI]
+    end
+
+    Player -->|Natural Language| IntentParser
+    IntentParser -->|ParsedCommand<br/>{type: pickup, target: crystal}| Narrator
+    Narrator -->|Delegates| Room
+    Narrator -->|Delegates| Inventory
+    Narrator -->|Delegates| Entity
+    Room -->|query_world_lore| Tools
+    Inventory -->|examine_item| Tools
+    Entity -->|interact_with_entity| Tools
+    Tools -->|Context Retrieval| Room
+    Tools -->|Context Retrieval| Inventory
+    Tools -->|Context Retrieval| Entity
+    Narrator -->|Save/Load State| Redis
+    Narrator -->|Persist Discoveries| Postgres
+    Narrator -->|Composed Response| UI
+    UI -->|Real-time Updates| Player
+
+    classDef agentStyle fill:#1f6feb,stroke:#58a6ff,color:#fff
+    classDef toolStyle fill:#238636,stroke:#2ea043,color:#fff
+    classDef storageStyle fill:#8957e5,stroke:#a371f7,color:#fff
+    classDef uiStyle fill:#bc4c00,stroke:#fb8500,color:#fff
+
+    class IntentParser,Narrator,Room,Inventory,Entity agentStyle
+    class Tools toolStyle
+    class Redis,Postgres storageStyle
+    class UI uiStyle
 ```
 
 ### Components Overview
@@ -100,24 +109,24 @@ This project implements production-ready agentic AI patterns:
 
 ### Agents & Responsibilities
 
-| Agent | Purpose | Key Tools | Pattern |
-|-------|---------|-----------|---------|
-| **IntentParser** | Classifies natural language commands into structured intents | N/A (pure AI classification) | Classification |
-| **AdventureNarrator** | Orchestrates game flow, delegates to specialists, composes narratives | `parse_command`, agent delegation | Orchestration |
-| **RoomDescriptor** | Generates rich environmental descriptions using RAG | `query_world_lore`, `get_room_connections` | Specialist + RAG |
-| **InventoryManager** | Manages item interactions (pickup, drop, examine, use) | `update_inventory`, `examine_item` | Specialist |
-| **EntityManager** | Handles NPCs, creatures, and interactive elements | `interact_with_entity`, `check_entity_state` | Specialist |
+| Agent                 | Purpose                                                               | Key Tools                                    | Pattern          |
+| --------------------- | --------------------------------------------------------------------- | -------------------------------------------- | ---------------- |
+| **IntentParser**      | Classifies natural language commands into structured intents          | N/A (pure AI classification)                 | Classification   |
+| **AdventureNarrator** | Orchestrates game flow, delegates to specialists, composes narratives | `parse_command`, agent delegation            | Orchestration    |
+| **RoomDescriptor**    | Generates rich environmental descriptions using RAG                   | `query_world_lore`, `get_room_connections`   | Specialist + RAG |
+| **InventoryManager**  | Manages item interactions (pickup, drop, examine, use)                | `update_inventory`, `examine_item`           | Specialist       |
+| **EntityManager**     | Handles NPCs, creatures, and interactive elements                     | `interact_with_entity`, `check_entity_state` | Specialist       |
 
 ### Tools Available to Agents
 
-| Tool | Purpose | Used By |
-|------|---------|---------|
-| **query_world_lore** | Searches ChromaDB for relevant world content | RoomDescriptor, EntityManager |
+| Tool                     | Purpose                                       | Used By                           |
+| ------------------------ | --------------------------------------------- | --------------------------------- |
+| **query_world_lore**     | Searches ChromaDB for relevant world content  | RoomDescriptor, EntityManager     |
 | **get_room_connections** | Returns available exits from current location | RoomDescriptor, AdventureNarrator |
-| **update_inventory** | Add/remove items from player inventory | InventoryManager |
-| **examine_item** | Get detailed item descriptions | InventoryManager |
-| **check_ability** | Validate if player can use class ability | AdventureNarrator |
-| **interact_with_entity** | Handle NPC/creature interactions | EntityManager |
+| **update_inventory**     | Add/remove items from player inventory        | InventoryManager                  |
+| **examine_item**         | Get detailed item descriptions                | InventoryManager                  |
+| **check_ability**        | Validate if player can use class ability      | AdventureNarrator                 |
+| **interact_with_entity** | Handle NPC/creature interactions              | EntityManager                     |
 
 ## 🚀 Quick Start
 
