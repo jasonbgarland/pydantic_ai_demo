@@ -282,8 +282,8 @@ async def process_command(game_id: str, command: GameCommand):
                    "params": command.parameters})
 
     try:
-        # Parse command using AdventureNarrator
-        parsed_command = adventure_narrator.parse_command(command.command, command.parameters)
+        # Parse command using AdventureNarrator (AI-powered intent classification)
+        parsed_command = await adventure_narrator.parse_command(command.command, command.parameters)
 
         # Process command through agent coordination
         character = session.get("character", {})
@@ -327,7 +327,7 @@ async def process_command(game_id: str, command: GameCommand):
             "success": game_response.success,
             "session": session,
             "metadata": game_response.metadata,
-            "game_status": session.get("status", GameStatus.ACTIVE)
+            "game_status": session.get("status", GameStatus.IN_PROGRESS)
         }
 
     except Exception as exc:
@@ -412,8 +412,8 @@ async def websocket_game_endpoint(websocket: WebSocket, game_id: str):
             })
 
             try:
-                # Parse command using AdventureNarrator
-                parsed_command = adventure_narrator.parse_command(command_text, parameters)
+                # Parse command using AdventureNarrator (AI-powered intent classification)
+                parsed_command = await adventure_narrator.parse_command(command_text, parameters)
 
                 # Send typing indicator
                 await websocket.send_json({
