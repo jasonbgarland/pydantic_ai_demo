@@ -152,9 +152,10 @@ class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
         self.assertIn("dimly lit", response.narrative)
         self.assertTrue(response.success)
 
-        # Verify agent was called
+        # Verify agent was called with location and game_state
         self.mock_room_descriptor.get_room_description.assert_called_once_with(
-            "dungeon_entrance"
+            "dungeon_entrance",
+            game_state=self.sample_game_state
         )
 
     async def test_pickup_item_with_inventory_manager_agent(self):

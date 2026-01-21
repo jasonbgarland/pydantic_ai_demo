@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field
 
 # Import RAG tools
 from app.tools.rag_tools import query_world_lore, get_room_description as rag_get_room_description
+# Import environmental state
+from app.mechanics import EnvironmentalState
 
 # Load environment variables
 load_dotenv()
@@ -122,16 +124,19 @@ class RoomDescriptor:
             room_connections=ROOM_CONNECTIONS
         )
 
-    async def get_room_description(self, location: str) -> str:
+    async def get_room_description(
+            self, location: str, game_state: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
         Get a description for the specified location using RAG.
 
         Args:
             location: Room name in human-readable format (e.g., "Cave Entrance")
                      Will be automatically normalized for RAG queries
+            game_state: Optional game state dict containing collapse information and inventory
 
         Returns:
-            Rich description of the room
+            Rich description of the room, with environmental modifiers if applicable
         """
         self.context.current_location = location
         if location not in self.context.visited_rooms:
@@ -142,31 +147,92 @@ class RoomDescriptor:
 
         # If we got substantial content from RAG, use it
         if rag_description and len(rag_description) > 50:
-            return rag_description
-
-        # If PydanticAI agent is available and OpenAI key is set, use it
-        if PYDANTIC_AI_AVAILABLE and ROOM_DESCRIPTOR_AGENT:
+            description = rag_description
+        elif PYDANTIC_AI_AVAILABLE and ROOM_DESCRIPTOR_AGENT:
+            # If PydanticAI agent is available and OpenAI key is set, use it
             try:
                 result = await ROOM_DESCRIPTOR_AGENT.run(
                     f"Describe the {location} in an evocative way",
                     deps=self.context
                 )
-                return result.data
+                description = result.data
             except Exception:
                 # Fallback if AI call fails
-                pass
+                description = rag_description if rag_description else f"You are in {location}."
+        else:
+            # Final fallback
+            description = rag_description if rag_description else f"You are in {location}."
 
-        # Final fallback
-        return rag_description if rag_description else f"You are in {location}."
+        # Filter out items that have been picked up
+        if game_state and description:
+            inventory = game_state.get('inventory', [])
+            if inventory:
+                description = self._filter_picked_up_items(description, inventory)
 
-    async def handle_movement(self, from_location: str, direction: str) -> Dict[str, Any]:
+        # Add environmental modifiers if collapse is active
+        if game_state and EnvironmentalState.should_apply_environmental_modifier(
+            game_state, location
+        ):
+            env_modifier = EnvironmentalState.get_room_modifier(game_state)
+            if env_modifier:
+                description = f"{description}\n\n{env_modifier}"
+
+        return description
+
+    def _filter_picked_up_items(self, description: str, inventory: List[str]) -> str:
+        """
+        Filter out mentions of items that have been picked up from the room description.
+
+        Args:
+            description: The room description text
+            inventory: List of items in player's inventory
+
+        Returns:
+            Filtered description with picked-up items removed
+        """
+        if not inventory:
+            return description
+
+        # Common phrases that indicate an item is present in the room
+        item_indicators = [
+            "lies", "rests", "sits", "hangs", "stands",
+            "coiled", "mounted", "placed", "left"
+        ]
+
+        # Split into sentences
+        sentences = description.split('. ')
+        filtered_sentences = []
+
+        for sentence in sentences:
+            # Check if sentence mentions any picked-up items
+            sentence_lower = sentence.lower()
+            mentions_picked_item = False
+
+            for item in inventory:
+                # Normalize item name for matching
+                item_name = item.replace('_', ' ').lower()
+                item_words = item_name.split()
+
+                # Check if the sentence mentions this item with an indicator word
+                if any(word in sentence_lower for word in item_words):
+                    # Check if it's describing the item as being in the room
+                    if any(indicator in sentence_lower for indicator in item_indicators):
+                        mentions_picked_item = True
+                        break
+
+            if not mentions_picked_item:
+                filtered_sentences.append(sentence)
+
+        return '. '.join(filtered_sentences)
+
+    async def handle_movement(self, from_location: str, direction: str, game_state: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Handle movement between rooms using the room connection map."""
         # Check if movement is valid
         connections = ROOM_CONNECTIONS.get(from_location, {})
 
         if direction in connections:
             new_location = connections[direction]
-            description = await self.get_room_description(new_location)
+            description = await self.get_room_description(new_location, game_state=game_state)
 
             return {
                 "success": True,
@@ -191,16 +257,19 @@ class RoomDescriptor:
 
     async def examine_environment(
             self, location: str,
-            target: str = None, inventory: List[str] = None) -> str:
+            target: str = None, inventory: List[str] = None,
+            character_class: str = None) -> str:
         """Examine environmental details in a room using RAG.
 
         Args:
             location: Current room location
             target: Specific thing to examine (or None for general look)
             inventory: Player's current inventory to filter out picked-up items
+            character_class: Player's character class (warrior, wizard, rogue) to filter hints
         """
         self.context.current_location = location
         inventory = inventory or []
+        character_class = (character_class or '').lower()
 
         # Query RAG for specific details about the target or general environment
         if target:
@@ -245,6 +314,33 @@ class RoomDescriptor:
                                 ':**' in sentence or
                                 len(sentence) < 15):
                             continue
+
+                        # Filter out class-specific hints that don't match player's class
+                        if character_class:
+                            sentence_lower = sentence.lower()
+                            # Skip hints for other classes
+                            if 'warrior' in sentence_lower and character_class != 'warrior':
+                                continue
+                            if 'wizard' in sentence_lower and character_class != 'wizard':
+                                continue
+                            if 'rogue' in sentence_lower and character_class != 'rogue':
+                                continue
+                            # Skip class-specific descriptions for wrong class
+                            if character_class == 'wizard':
+                                if any(phrase in sentence_lower for phrase in
+                                       ['natural climbing', 'nimble', 'agility', 'quick thinking',
+                                        'strong arms', 'powerful muscles', 'brute force']):
+                                    continue
+                            elif character_class == 'warrior':
+                                if any(phrase in sentence_lower for phrase in
+                                       ['magical knowledge', 'intellect', 'scholarship',
+                                        'natural climbing', 'nimble', 'agility']):
+                                    continue
+                            elif character_class == 'rogue':
+                                if any(phrase in sentence_lower for phrase in
+                                       ['magical knowledge', 'intellect', 'scholarship',
+                                        'strong arms', 'powerful muscles', 'brute force']):
+                                    continue
 
                         # Check if sentence is about the target
                         sentence_lower = sentence.lower()

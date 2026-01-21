@@ -33,9 +33,91 @@ The collapse appears recent enough that the dust hasn't fully settled. This pass
 - Warning sign provides clues about the cave's geological instability
 - Examining the collapse pattern reveals information about earthquake timing
 
+## ⚠️ CRITICAL WARNING - THIS IS A DEAD END! ⚠️
+
+**This passage is COMPLETELY BLOCKED!** There is no way through!
+
+The rubble pile is massive - tons of rock and debris. It would take:
+
+- **Days** of excavation work with proper equipment
+- **Multiple people** with shovels and hauling tools
+- **Structural expertise** to avoid causing another collapse
+
+**You cannot dig through this!** Even if you could, you don't have time.
+
+## Why This Matters
+
+If you're here **AFTER taking the crystal** from the treasury:
+
+🚨 **YOU WENT THE WRONG WAY!** 🚨
+
+The escape route is **NORTH to the Chasm, then WEST to the Entrance!**
+
+**DO NOT COME HERE DURING THE ESCAPE!**
+
+The explorer's journal specifically warned:
+_"Do NOT go south to the collapsed passage - it's a dead end. GO WEST IMMEDIATELY."_
+
+## If You're Here During the Collapse
+
+The game will make this very clear:
+
+**Narrator**: _"The rumbling intensifies! This dead end is a death trap! You must go NORTH immediately, back to the chasm and then west to the entrance!"_
+
+You still have time to:
+
+1. `go north` - Return to the Yawning Chasm
+2. `use rope` or `use grappling hook` - Cross the chasm quickly
+3. `go west` - Get back to the Cave Entrance
+4. `go west` again - EXIT TO SAFETY!
+
+**Don't panic - just turn around and follow the escape route!**
+
+## If You're Here BEFORE Taking the Crystal
+
+**Good news**: You're exploring safely and can leave whenever you want.
+
+**What you learn here**:
+
+1. This passage is completely blocked (no alternate route)
+2. The cave system is geologically unstable (foreshadowing)
+3. This confirms there's only ONE way to the treasury (through the chasm)
+4. This is NOT a viable escape route (remember this!)
+
+**Recommendation**: `go north` to return to the Yawning Chasm
+
 ## Foreshadowing Elements
 
 - Recent collapse hints at ongoing geological instability
 - Sets up the cave-in trap that occurs when crystal is taken
 - Demonstrates the real danger of being trapped underground
 - Warning sign's message becomes prophetic for the adventure's climax
+
+## Strategic Value
+
+Visiting this room teaches you:
+
+- **The exit route matters** - Not all paths lead out
+- **The cave is unstable** - Taking the crystal will be dangerous
+- **No alternate routes** - The way you came is the way you leave
+- **Respect the warnings** - The journal and murals are right
+
+**Meta lesson**: When the game warns you during the escape, LISTEN! Going south during the collapse is an instant failure scenario.
+
+## Class-Agnostic Advice
+
+**All classes should**:
+
+- Note this is a dead end and leave
+- Remember this is NOT the escape route
+- Use this knowledge to plan the crystal heist escape
+- When collapse starts, go NORTH/WEST only!
+
+This room exists to:
+
+1. Teach you the cave layout
+2. Build tension (geological instability)
+3. Provide a failure state (wrong direction during escape)
+4. Reward exploration (knowledge of what NOT to do)
+
+**Now that you've seen there's nothing here, go back north and continue your adventure!**

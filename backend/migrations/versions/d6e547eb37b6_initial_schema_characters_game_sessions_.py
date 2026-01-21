@@ -1,7 +1,7 @@
 """Initial schema: characters, game_sessions, discoveries, narrative_history
 
 Revision ID: d6e547eb37b6
-Revises: 
+Revises:
 Create Date: 2025-12-28 11:31:28.528488
 
 """

@@ -1,0 +1,30 @@
+[MESSAGES CONTROL]
+# Disable specific warnings that are acceptable in this codebase
+disable=
+    line-too-long,           # We're okay with longer lines for readability
+    broad-exception-caught,  # Libraries often require catching general exceptions
+    too-many-lines,          # Large files like mechanics.py are acceptable
+    too-few-public-methods,  # Database models often have minimal methods
+    too-many-locals,         # Complex game logic may need many variables
+    too-many-return-statements,  # Game logic may have many exit conditions
+    too-many-branches,       # Game state management requires branching
+    too-many-statements,     # Complete game mechanics need comprehensive logic
+    too-many-nested-blocks,  # Deep nesting acceptable for game state checks
+    duplicate-code,          # Some duplication in tests/utilities is acceptable
+    fixme,                   # TODO comments are planning tools, not errors
+    import-outside-toplevel, # Sometimes needed for circular import avoidance
+    protected-access,        # Testing private methods is valid pattern
+    unused-variable,         # Intermediate test variables often intentionally unused
+    unused-argument,         # Tool arguments may be required by signature but unused
+    invalid-name,            # Test helper methods use camelCase to match unittest style
+    wrong-import-position    # Environment setup may require imports after code
+
+[FORMAT]
+max-line-length=120
+
+[BASIC]
+# Allow common test method naming patterns
+good-names=i,j,k,ex,Run,_,id,db
+
+[DESIGN]
+max-args=10

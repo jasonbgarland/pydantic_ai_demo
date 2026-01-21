@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Dict, Optional, List, Any
 from pydantic import BaseModel, Field
 
+from app.mechanics import AbilitySystem
+
 
 class CommandType(str, Enum):
     """Types of commands the adventure narrator can handle."""
@@ -16,6 +18,7 @@ class CommandType(str, Enum):
     ATTACK = "attack"
     LOOK = "look"
     INVENTORY = "inventory"
+    ABILITY = "ability"
     UNKNOWN = "unknown"
 
 
@@ -80,12 +83,15 @@ class AdventureNarrator:
             "run": CommandType.MOVEMENT,
             "travel": CommandType.MOVEMENT,
             "head": CommandType.MOVEMENT,
+            "cross": CommandType.MOVEMENT,
+            "traverse": CommandType.MOVEMENT,
             # Examination
             "examine": CommandType.EXAMINE,
             "inspect": CommandType.EXAMINE,
             "check": CommandType.EXAMINE,
             "view": CommandType.EXAMINE,
             "see": CommandType.EXAMINE,
+            "read": CommandType.EXAMINE,
             # Item interaction
             "get": CommandType.PICKUP,
             "take": CommandType.PICKUP,
@@ -100,6 +106,8 @@ class AdventureNarrator:
             "utilize": CommandType.USE,
             "activate": CommandType.USE,
             "apply": CommandType.USE,
+            "secure": CommandType.USE,
+            "anchor": CommandType.USE,
             # Entity interaction
             "talk": CommandType.TALK,
             "speak": CommandType.TALK,
@@ -183,6 +191,18 @@ class AdventureNarrator:
                 confidence=0.9
             )
 
+        # Check if it's a known ability name (dash, shield, etc.)
+        # This handles single-word ability commands without "cast" or "use"
+        common_abilities = ["dash", "shield", "rage", "berserk", "stealth", "sneak"]
+        if word in common_abilities:
+            return ParsedCommand(
+                command_type=CommandType.ABILITY,
+                action="ability",
+                target=word,
+                parameters={**parameters, "ability_name": word},
+                confidence=0.85
+            )
+
         return ParsedCommand(
             command_type=CommandType.UNKNOWN,
             action=word,
@@ -192,6 +212,24 @@ class AdventureNarrator:
     def _parse_multi_word(self, words: List[str], parameters: Dict) -> ParsedCommand:
         """Parse multi-word commands."""
         first_word = words[0]
+
+        # Special handling for inventory-related phrases
+        # "check inventory", "show inventory", "what's in my inventory", etc.
+        inventory_triggers = ["inventory", "items", "bag", "backpack", "belongings", "gear"]
+        command_text = " ".join(words).lower()
+        
+        # Check if command is asking about inventory
+        if any(trigger in command_text for trigger in inventory_triggers):
+            # Common patterns: "check inventory", "show items", "what do i have", "what's in my bag"
+            if any(phrase in command_text for phrase in [
+                "check", "show", "list", "what", "display", "see my", "view my", "my inventory"
+            ]):
+                return ParsedCommand(
+                    command_type=CommandType.INVENTORY,
+                    action="inventory",
+                    parameters=parameters,
+                    confidence=0.9
+                )
 
         # Handle "look at <target>" before general action mapping
         if first_word == "look" and len(words) >= 2:
@@ -218,6 +256,45 @@ class AdventureNarrator:
                     parameters=parameters,
                     confidence=0.95
                 )
+
+        # Special handling for "cross chasm" - treat "chasm" as direction
+        if first_word in ["cross", "traverse"] and len(words) >= 2:
+            target = words[1]
+            if target == "chasm":
+                return ParsedCommand(
+                    command_type=CommandType.MOVEMENT,
+                    action=first_word,
+                    direction="chasm",
+                    target=target,
+                    parameters=parameters,
+                    confidence=0.95
+                )
+
+        # Handle ability commands (cast, activate + ability name, or "use" + known ability)
+        # "use" with items goes to item handler, but "use" + ability name is an ability
+        if first_word in ["cast", "activate"] and len(words) >= 2:
+            ability_name = " ".join(words[1:])
+            return ParsedCommand(
+                command_type=CommandType.ABILITY,
+                action="ability",
+                target=ability_name,
+                parameters={**parameters, "ability_name": ability_name},
+                confidence=0.9
+            )
+
+        # Check if "use <something>" might be an ability (like "use dash")
+        if first_word == "use" and len(words) >= 2:
+            potential_ability = " ".join(words[1:])
+            common_abilities = ["dash", "shield", "rage", "berserk", "stealth", "sneak"]
+            if words[1] in common_abilities:
+                return ParsedCommand(
+                    command_type=CommandType.ABILITY,
+                    action="ability",
+                    target=potential_ability,
+                    parameters={**parameters, "ability_name": potential_ability},
+                    confidence=0.85
+                )
+            # Otherwise fall through to item handling
 
         # Handle "<action> <target>" patterns
         if first_word in self.action_verbs and len(words) >= 2:
@@ -252,6 +329,8 @@ class AdventureNarrator:
             return await self._handle_entity_interaction(parsed_command, game_state)
         if parsed_command.command_type == CommandType.INVENTORY:
             return await self._handle_inventory(parsed_command, game_state)
+        if parsed_command.command_type == CommandType.ABILITY:
+            return await self._handle_ability(parsed_command, game_state)
         # Unknown command
         return GameResponse(
             agent="AdventureNarrator",
@@ -269,10 +348,38 @@ class AdventureNarrator:
         current_location = game_state.get('location', 'unknown')
         direction = command.direction or 'somewhere'
 
+        # Special handling for "cross chasm" - use rope if anchored
+        if direction.lower() == 'chasm' and current_location == 'yawning_chasm':
+            from app.mechanics import RopeSystem
+
+            # If rope is anchored, use it to cross
+            if RopeSystem.is_rope_anchored(game_state):
+                use_result = RopeSystem.use_rope(game_state)
+                state_updates = use_result.get("effects", {})
+
+                return GameResponse(
+                    agent="RopeSystem",
+                    narrative=use_result["narrative"],
+                    success=use_result["success"],
+                    game_state_updates=state_updates,
+                    metadata={'action': 'cross_chasm_with_rope'}
+                )
+
+            # No rope anchored - give helpful error
+            return GameResponse(
+                agent="AdventureNarrator",
+                narrative=(
+                    "You need to anchor your rope first before crossing the chasm. "
+                    "Try 'use rope' to secure it, or use your abilities or grappling hook."
+                ),
+                success=False,
+                metadata={'action': 'cross_chasm_failed', 'reason': 'no_rope_anchored'}
+            )
+
         if self.room_descriptor:
             try:
                 movement_result = await self.room_descriptor.handle_movement(
-                    current_location, direction
+                    current_location, direction, game_state=game_state
                 )
                 if movement_result['success']:
                     narrative = movement_result['description']
@@ -321,11 +428,13 @@ class AdventureNarrator:
             try:
                 if target == 'around':
                     description = await self.room_descriptor.get_room_description(
-                        current_location
+                        current_location, game_state=game_state
                     )
                 else:
+                    character_class = game_state.get('character_class', '') if game_state else ''
                     description = await self.room_descriptor.examine_environment(
-                        current_location, target, inventory=current_inventory
+                        current_location, target, inventory=current_inventory,
+                        character_class=character_class
                     )
                 return GameResponse(
                     agent="RoomDescriptor",
@@ -353,11 +462,54 @@ class AdventureNarrator:
     async def _handle_item_interaction(
         self, command: ParsedCommand, game_state: Dict[str, Any]
     ) -> GameResponse:
-        """Handle item interactions by delegating to InventoryManager."""
+        """Handle item interactions by delegating to InventoryManager or special systems."""
         target = command.target or 'something'
         action = command.action
         current_inventory = game_state.get('inventory', [])
         current_location = game_state.get('location', '')
+
+        # Special handling for grappling hook at the chasm
+        if action in ['use', 'utilize', 'activate', 'apply', 'secure', 'anchor'] and 'grappl' in target.lower():
+            from app.mechanics import GrappleSystem
+
+            use_result = GrappleSystem.use_grapple(game_state)
+            state_updates = use_result.get("effects", {})
+
+            return GameResponse(
+                agent="GrappleSystem",
+                narrative=use_result["narrative"],
+                success=use_result["success"],
+                game_state_updates=state_updates,
+                metadata={'action': 'use_grappling_hook'}
+            )
+
+        # Special handling for rope at the chasm
+        if action in ['use', 'utilize', 'activate', 'apply', 'secure', 'anchor'] and 'rope' in target.lower():
+            from app.mechanics import RopeSystem
+
+            # Try to anchor rope first (if not already anchored)
+            if not RopeSystem.is_rope_anchored(game_state):
+                anchor_result = RopeSystem.anchor_rope(game_state)
+                if anchor_result["success"]:
+                    return GameResponse(
+                        agent="RopeSystem",
+                        narrative=anchor_result["narrative"],
+                        success=True,
+                        metadata={'action': 'anchor_rope'}
+                    )
+                # If can't anchor, try to use (will explain why)
+
+            # Try to use rope to cross
+            use_result = RopeSystem.use_rope(game_state)
+            state_updates = use_result.get("effects", {})
+
+            return GameResponse(
+                agent="RopeSystem",
+                narrative=use_result["narrative"],
+                success=use_result["success"],
+                game_state_updates=state_updates,
+                metadata={'action': 'use_rope'}
+            )
 
         if self.inventory_manager:
             try:
@@ -473,6 +625,60 @@ class AdventureNarrator:
             agent="AdventureNarrator",
             narrative=narrative,
             metadata={'inventory': inventory}
+        )
+
+    async def _handle_ability(
+        self, command: ParsedCommand, game_state: Dict[str, Any]
+    ) -> GameResponse:
+        """Handle ability usage by delegating to the AbilitySystem."""
+        ability_name = command.parameters.get("ability_name", "")
+        character = game_state.get("character", {})
+        character_class = character.get("character_class", "warrior")
+
+        # Parse ability command to check if valid
+        parse_result = AbilitySystem.parse_ability_command(ability_name, character_class)
+
+        if not parse_result["is_ability"]:
+            return GameResponse(
+                agent="AbilitySystem",
+                narrative=f"'{ability_name}' is not a recognized ability for {character_class}s.",
+                success=False,
+                metadata={"ability_name": ability_name, "character_class": character_class}
+            )
+
+        actual_ability = parse_result["ability_name"]
+
+        # Check if ability can be used
+        can_use = AbilitySystem.can_use_ability(
+            actual_ability,
+            character_class,
+            game_state.get("location", "unknown")
+        )
+
+        if not can_use["can_use"]:
+            return GameResponse(
+                agent="AbilitySystem",
+                narrative=can_use.get("reason", "You cannot use that ability right now."),
+                success=False,
+                metadata={"ability_name": actual_ability, "reason": can_use.get("reason")}
+            )
+
+        # Execute the ability
+        ability_result = AbilitySystem.execute_ability(
+            actual_ability,
+            character_class,
+            game_state
+        )
+
+        # Apply state updates from ability execution
+        state_updates = ability_result.get("state_changes", {})
+
+        return GameResponse(
+            agent="AbilitySystem",
+            narrative=ability_result.get("narrative", f"You use {actual_ability}!"),
+            game_state_updates=state_updates,
+            success=ability_result.get("success", True),
+            metadata={"ability_name": actual_ability, "result": ability_result}
         )
 
     async def call_agents(self, agent_name: str, method_name: str, *args, **kwargs):

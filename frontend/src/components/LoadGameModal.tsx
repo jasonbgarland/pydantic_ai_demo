@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface SavedGame {
   game_id: string;
@@ -39,13 +39,7 @@ export function LoadGameModal({
   const [isDeletingGame, setIsDeletingGame] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchSavedGames();
-    }
-  }, [isOpen]);
-
-  const fetchSavedGames = async () => {
+  const fetchSavedGames = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -53,12 +47,18 @@ export function LoadGameModal({
       setSavedGames(games);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to load saved games"
+        err instanceof Error ? err.message : "Failed to load saved games",
       );
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [onFetchSaves]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchSavedGames();
+    }
+  }, [isOpen, fetchSavedGames]);
 
   const handleLoad = async (gameId: string) => {
     setIsLoadingGame(gameId);

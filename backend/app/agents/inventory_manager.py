@@ -4,12 +4,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
 
-from ..tools.rag_tools import find_items_in_location
-from ..utils.name_utils import normalize_item_name, display_item_name
-
-# Set up logging
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from pydantic import BaseModel, Field
 
 try:
     from pydantic_ai import Agent, RunContext
@@ -21,7 +16,12 @@ except ImportError:
     Agent = None
     RunContext = None
 
-from pydantic import BaseModel, Field
+from ..tools.rag_tools import find_items_in_location
+from ..utils.name_utils import normalize_item_name, display_item_name
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # Load environment variables
 load_dotenv()
@@ -251,10 +251,34 @@ class InventoryManager:
         """Handle using an item."""
         self.context.current_inventory = current_inventory.copy()
 
+        # Normalize the item name to handle variations and extra text
+        normalized_input = normalize_item_name(item_name)
+        
+        # Find the actual item in inventory that matches
+        matched_item = None
+        for inv_item in current_inventory:
+            if normalize_item_name(inv_item) == normalized_input:
+                matched_item = inv_item
+                break
+            # Also check if the normalized input contains the item name
+            # This handles "use grappling hook to cross" -> finds "grappling_hook"
+            if normalize_item_name(inv_item) in normalized_input:
+                matched_item = inv_item
+                break
+        
+        # If we didn't find a match, return error immediately
+        if not matched_item:
+            return {
+                "success": False,
+                "message": f"You don't have a {item_name} to use.",
+                "inventory_update": current_inventory
+            }
+
         if PYDANTIC_AI_AVAILABLE and INVENTORY_AGENT:
             try:
+                # Use the matched item name for the AI agent
                 result = await INVENTORY_AGENT.run(
-                    f"Player wants to use: {item_name}",
+                    f"Player wants to use: {matched_item}",
                     deps=self.context
                 )
                 return {
@@ -267,15 +291,9 @@ class InventoryManager:
                 pass
 
         # Fallback implementation
-        if item_name in current_inventory:
-            return {
-                "success": True,
-                "message": f"You use the {item_name}. [Item effects not yet implemented]",
-                "inventory_update": current_inventory
-            }
         return {
-            "success": False,
-            "message": f"You don't have a {item_name} to use.",
+            "success": True,
+            "message": f"You use the {display_item_name(matched_item)}. [Item effects not yet implemented]",
             "inventory_update": current_inventory
         }
 

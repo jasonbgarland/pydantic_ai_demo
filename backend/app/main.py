@@ -29,6 +29,16 @@ from app.models.database import (
     Discovery
 )
 
+# Import game mechanics
+from app.mechanics import (
+    CollapseManager,
+    DamageSystem,
+    GameStatus,
+    initialize_game_mechanics,
+    should_trigger_collapse,
+    update_game_status
+)
+
 # Load environment variables
 load_dotenv()
 
@@ -134,6 +144,10 @@ async def create_session(character: dict) -> dict:
         "turn_count": 0,
         "temp_flags": {}
     }
+
+    # Initialize game mechanics (collapse system, status, etc.)
+    initialize_game_mechanics(session)
+
     await redis_client.set(f"session:{game_id}", json.dumps(session))
     return session
 
@@ -255,6 +269,9 @@ async def process_command(game_id: str, command: GameCommand):
     if not session:
         return {"error": "session_not_found", "message": "Game session not found"}
 
+    # Initialize game mechanics if not present (for backward compatibility)
+    initialize_game_mechanics(session)
+
     # Update session state
     session.setdefault("turn_count", 0)
     session["turn_count"] += 1
@@ -267,19 +284,33 @@ async def process_command(game_id: str, command: GameCommand):
     history.append({"turn": session["turn_count"], "command": command.command,
                    "params": command.parameters})
 
+    # Increment collapse turn counter if collapse is active BEFORE command processing
+    collapse_was_active = CollapseManager.is_collapse_active(session)
+    if collapse_was_active:
+        CollapseManager.increment_collapse_turn(session)
+
+    # Apply environmental damage during collapse (before command)
+    damage_result = DamageSystem.apply_environmental_damage(session)
+    damage_narrative = damage_result.get("narrative", "")
+
     try:
         # Parse command using AdventureNarrator
         parsed_command = adventure_narrator.parse_command(command.command, command.parameters)
 
         # Process command through agent coordination
+        character = session.get("character", {})
+        character_class = character.get("character_class", "") if isinstance(character, dict) else ""
         game_response = await adventure_narrator.handle_command(
             parsed_command=parsed_command,
             game_state={
                 "location": session["location"],
                 "inventory": session["inventory"],
                 "visited_rooms": session["visited_rooms"],
-                "character": session.get("character", {}),
-                "turn_count": session["turn_count"]
+                "character": character,
+                "character_class": character_class,
+                "turn_count": session["turn_count"],
+                "collapse_triggered": session.get("collapse_triggered", False),
+                "turns_since_collapse": session.get("turns_since_collapse", 0)
             }
         )
 
@@ -288,17 +319,43 @@ async def process_command(game_id: str, command: GameCommand):
             for key, value in game_response.game_state_updates.items():
                 session[key] = value
 
+        # Check if command should trigger collapse AFTER inventory is updated
+        collapse_narrative = ""
+        if should_trigger_collapse(command.command, session):
+            collapse_narrative = CollapseManager.trigger_collapse(session)
+
+        # Add collapse narrative if triggered or ongoing
+        full_narrative = game_response.narrative
+        if collapse_narrative:
+            full_narrative = f"{game_response.narrative}\n\n{collapse_narrative}"
+        elif CollapseManager.is_collapse_active(session):
+            # Add ongoing collapse warnings
+            collapse_warning = CollapseManager.get_collapse_narrative(session)
+            if collapse_warning:
+                full_narrative = f"{collapse_warning}\n\n{game_response.narrative}"
+
+        # Add damage narrative if damage occurred
+        if damage_narrative:
+            full_narrative = f"{full_narrative}\n\n{damage_narrative}"
+
+        # Check for victory or defeat conditions
+        status_narrative = update_game_status(session)
+        if status_narrative:
+            # Game has ended (victory or defeat)
+            full_narrative = f"{full_narrative}\n{status_narrative}"
+
         # Save the updated session
         await save_session(game_id, session)
 
         return {
             "game_id": game_id,
             "turn": session["turn_count"],
-            "response": game_response.narrative,
+            "response": full_narrative,
             "agent": game_response.agent,
             "success": game_response.success,
             "session": session,
-            "metadata": game_response.metadata
+            "metadata": game_response.metadata,
+            "game_status": session.get("status", GameStatus.ACTIVE)
         }
 
     except Exception as exc:
@@ -400,13 +457,17 @@ async def websocket_game_endpoint(websocket: WebSocket, game_id: str):
                 # 2. AdventureNarrator to yield chunks as agents generate them
                 # 3. Async generator pattern: async for chunk in narrator.handle_command_stream(...)
 
+                character = session.get("character", {})
+                character_class = character.get("character_class", "") if isinstance(character, dict) else ""
+
                 game_response = await adventure_narrator.handle_command(
                     parsed_command=parsed_command,
                     game_state={
                         "location": session["location"],
                         "inventory": session["inventory"],
                         "visited_rooms": session["visited_rooms"],
-                        "character": session.get("character", {}),
+                        "character": character,
+                        "character_class": character_class,
                         "turn_count": session["turn_count"]
                     }
                 )

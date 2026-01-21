@@ -1,7 +1,6 @@
 """Unit tests for database models."""
 import unittest
-from datetime import datetime
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

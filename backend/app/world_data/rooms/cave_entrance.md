@@ -4,13 +4,13 @@
 
 ## Connections: east=yawning_chasm, north=hidden_alcove
 
-## Items: rope, torch, leather_pack
+## Items: magical_rope
 
 ## Lighting: dim
 
 You stand at the mouth of an ancient cave, where daylight fades into mysterious shadows. Moisture drips steadily from stalactites overhead, creating small puddles on the uneven stone floor. The air carries a faint echo of distant water and the musty scent of ages-old stone.
 
-A weathered rope lies coiled near the entrance, left behind by some previous explorer. A flickering torch mounted on the wall casts dancing shadows across crude carvings that hint at the cave's ancient origins. A leather pack rests against the wall, its contents unknown but promising.
+A weathered magical rope lies coiled near the entrance, left behind by some previous explorer. Its fibers seem to shimmer with a faint enchantment. Crude carvings on the walls hint at the cave's ancient origins.
 
 To the east, the cave tunnel descends deeper into darkness, where you can hear the faint sound of wind rushing across empty space. To the north, a narrow crack in the wall seems wide enough to squeeze through, though it's unclear where it leads.
 
@@ -43,3 +43,35 @@ Close examination reveals that portions of the symbols have been deliberately de
 - The rope appears well-made and could be useful for climbing
 - The leather pack may contain useful supplies
 - The torch could be taken for better lighting deeper in the cave
+
+## Strategic Advice
+
+**Before venturing deeper**, smart adventurers should:
+
+1. **Take the rope** - It will be essential for crossing the chasm to the east
+2. **Explore north** - The crack in the wall might lead to useful supplies
+3. **Prepare mentally** - The adventure ahead is dangerous but rewarding
+
+## Class-Specific Hints
+
+### For Warriors
+
+Your **strength and endurance** will serve you well in the physical challenges ahead. The rope on the wall will let you use your powerful muscles to cross dangerous gaps. Don't be afraid to use brute force when needed - sometimes the direct approach is best.
+
+**Immediate suggestion**: Take that rope! Your strong arms can pull you anywhere.
+
+### For Wizards
+
+Your **magical knowledge and intellect** will help you understand the ancient mysteries within. The rope can be enhanced with magic for safer passage. Look for clues in ancient writings and murals - your scholarship is your greatest asset.
+
+**Immediate suggestion**: Take the rope and explore thoroughly - knowledge is power.
+
+### For Rogues
+
+Your **agility and quick thinking** make you ideal for navigating treacherous terrain. The rope will help, but your natural climbing skills might find alternative paths others miss. Stay light, stay quick, and trust your instincts.
+
+**Immediate suggestion**: Take the rope, but remember - you're nimble enough to find your own path.
+
+## Exit to Safety
+
+To the **west** lies the outside world and safety. Once you've ventured deep and claimed your prize, remember this exit - it's your escape route from danger.

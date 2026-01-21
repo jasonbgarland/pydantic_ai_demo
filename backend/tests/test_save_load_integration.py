@@ -1,6 +1,5 @@
 """Integration tests for save/load game endpoints."""
 import os
-import json
 import unittest
 from httpx import AsyncClient, ASGITransport
 

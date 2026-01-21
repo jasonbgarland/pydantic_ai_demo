@@ -48,7 +48,7 @@ async def drop_db():
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Async context manager for database sessions.
-    
+
     Usage:
         async with get_db() as session:
             result = await session.execute(select(Character))
@@ -68,7 +68,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def get_db_session() -> AsyncSession:
     """
     Dependency for FastAPI endpoints.
-    
+
     Usage in FastAPI:
         @app.get("/characters")
         async def list_characters(db: AsyncSession = Depends(get_db)):
