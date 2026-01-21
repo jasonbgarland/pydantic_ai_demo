@@ -75,7 +75,7 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
     model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     INVENTORY_AGENT = Agent(
         model=OpenAIModel(model_name),
-        result_type=ItemAction,
+        output_type=ItemAction,
         system_prompt=(
             'You are an inventory management specialist for a text adventure game. '
             'Handle item interactions with realistic constraints and provide '
@@ -184,12 +184,12 @@ class InventoryManager:
                 )
                 logger.info(
                     "AI AGENT RESULT: success=%s, message=%s",
-                    result.data.success, result.data.message
+                    result.output.success, result.output.message
                 )
                 return {
-                    "success": result.data.success,
-                    "message": result.data.message,
-                    "inventory_update": result.data.inventory_update
+                    "success": result.output.success,
+                    "message": result.output.message,
+                    "inventory_update": result.output.inventory_update
                 }
             except Exception as e:
                 # Fallback if AI call fails
@@ -225,9 +225,9 @@ class InventoryManager:
                     deps=self.context
                 )
                 return {
-                    "success": result.data.success,
-                    "message": result.data.message,
-                    "inventory_update": result.data.inventory_update
+                    "success": result.output.success,
+                    "message": result.output.message,
+                    "inventory_update": result.output.inventory_update
                 }
             except Exception:
                 # Fallback if AI call fails
@@ -282,9 +282,9 @@ class InventoryManager:
                     deps=self.context
                 )
                 return {
-                    "success": result.data.success,
-                    "message": result.data.message,
-                    "inventory_update": result.data.inventory_update
+                    "success": result.output.success,
+                    "message": result.output.message,
+                    "inventory_update": result.output.inventory_update
                 }
             except Exception:
                 # Fallback if AI call fails
@@ -310,7 +310,7 @@ class InventoryManager:
                     f"Describe examining {item_name} in detail",
                     deps=self.context
                 )
-                return result.data.message
+                return result.output.message
             except Exception:
                 # Fallback if AI call fails
                 pass

@@ -70,7 +70,7 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
     model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     ROOM_DESCRIPTOR_AGENT = Agent(
         model=OpenAIModel(model_name),
-        result_type=str,
+        output_type=str,
         system_prompt=(
             'You are a room description specialist for a text adventure game. '
             'Generate rich, immersive descriptions of locations with vivid details '
@@ -153,7 +153,7 @@ class RoomDescriptor:
                     f"Describe the {location} in an evocative way",
                     deps=self.context
                 )
-                description = result.data
+                description = result.output
             except Exception:
                 # Fallback if AI call fails
                 description = rag_description if rag_description else f"You are in {location}."

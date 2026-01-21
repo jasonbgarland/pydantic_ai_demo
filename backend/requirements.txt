@@ -13,7 +13,7 @@ alembic==1.13.0
 
 # AI and vector search
 openai>=1.54.3
-pydantic-ai==0.0.14
+pydantic-ai==1.44.0
 chromadb==0.4.18
 numpy<2.0.0  # Required for chromadb compatibility
 markdown-it-py==3.0.0

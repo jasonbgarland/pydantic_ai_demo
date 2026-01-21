@@ -1,35 +1,11 @@
 """Adventure Narrator Agent - Main game command orchestrator."""
 import asyncio
-from enum import Enum
 from typing import Dict, Optional, List, Any
 from pydantic import BaseModel, Field
 
 from app.mechanics import SimpleAbilitySystem
-
-
-class CommandType(str, Enum):
-    """Types of commands the adventure narrator can handle."""
-    MOVEMENT = "movement"
-    EXAMINE = "examine"
-    PICKUP = "pickup"
-    DROP = "drop"
-    USE = "use"
-    TALK = "talk"
-    ATTACK = "attack"
-    LOOK = "look"
-    INVENTORY = "inventory"
-    ABILITY = "ability"
-    UNKNOWN = "unknown"
-
-
-class ParsedCommand(BaseModel):
-    """Structured representation of a player command after parsing."""
-    command_type: CommandType
-    action: str = Field(description="The main action verb")
-    target: Optional[str] = Field(default=None, description="Object being acted upon")
-    direction: Optional[str] = Field(default=None, description="Movement direction")
-    parameters: Dict = Field(default_factory=dict, description="Additional command parameters")
-    confidence: float = Field(default=1.0, description="Parser confidence (0-1)")
+from app.agents.command_models import CommandType, ParsedCommand
+from app.agents.intent_parser import IntentParser
 
 
 class GameResponse(BaseModel):
@@ -48,272 +24,37 @@ class GameResponse(BaseModel):
 
 class AdventureNarrator:
     """
-    Main orchestrator agent that parses player commands and delegates to specialist agents.
+    Main orchestrator agent that coordinates specialist agents.
 
-    Responsibilities:
-    - Parse natural language commands into structured intents
-    - Determine which specialist agents to involve
-    - Orchestrate responses from multiple agents
-    - Compose final narrative response
+    Demonstrates the Orchestration Pattern:
+    - Uses IntentParser (AI classification) to understand commands
+    - Determines which specialist agents to involve
+    - Orchestrates responses from multiple agents
+    - Composes final narrative response
     """
 
     def __init__(self, room_descriptor=None, inventory_manager=None, entity_manager=None):
         """Initialize the AdventureNarrator with specialist agents."""
+        # AI-powered intent classification
+        self.intent_parser = IntentParser()
+        
         # Specialist agents for delegation
         self.room_descriptor = room_descriptor
         self.inventory_manager = inventory_manager
         self.entity_manager = entity_manager
 
-        # Movement direction mappings
-        self.movement_keywords = {
-            "north", "n", "up", "upward", "forward",
-            "south", "s", "down", "downward", "back", "backward",
-            "east", "e", "right",
-            "west", "w", "left",
-            "northeast", "ne", "northwest", "nw",
-            "southeast", "se", "southwest", "sw"
-        }
-
-        # Action verb mappings
-        self.action_verbs = {
-            # Movement
-            "go": CommandType.MOVEMENT,
-            "move": CommandType.MOVEMENT,
-            "walk": CommandType.MOVEMENT,
-            "run": CommandType.MOVEMENT,
-            "travel": CommandType.MOVEMENT,
-            "head": CommandType.MOVEMENT,
-            "cross": CommandType.MOVEMENT,
-            "traverse": CommandType.MOVEMENT,
-            # Examination
-            "examine": CommandType.EXAMINE,
-            "inspect": CommandType.EXAMINE,
-            "check": CommandType.EXAMINE,
-            "view": CommandType.EXAMINE,
-            "see": CommandType.EXAMINE,
-            "read": CommandType.EXAMINE,
-            # Item interaction
-            "get": CommandType.PICKUP,
-            "take": CommandType.PICKUP,
-            "pickup": CommandType.PICKUP,
-            "grab": CommandType.PICKUP,
-            "collect": CommandType.PICKUP,
-            "drop": CommandType.DROP,
-            "put": CommandType.DROP,
-            "place": CommandType.DROP,
-            "leave": CommandType.DROP,
-            "use": CommandType.USE,
-            "utilize": CommandType.USE,
-            "activate": CommandType.USE,
-            "apply": CommandType.USE,
-            "secure": CommandType.USE,
-            "anchor": CommandType.USE,
-            # Entity interaction
-            "talk": CommandType.TALK,
-            "speak": CommandType.TALK,
-            "chat": CommandType.TALK,
-            "converse": CommandType.TALK,
-            "attack": CommandType.ATTACK,
-            "fight": CommandType.ATTACK,
-            "hit": CommandType.ATTACK,
-            "strike": CommandType.ATTACK,
-            "kill": CommandType.ATTACK,
-            # Meta commands
-            "inventory": CommandType.INVENTORY,
-            "items": CommandType.INVENTORY,
-            "bag": CommandType.INVENTORY,
-            "backpack": CommandType.INVENTORY
-        }
-
-    def parse_command(self, raw_command: str, parameters: Optional[Dict] = None) -> ParsedCommand:
+    async def parse_command(self, raw_command: str, parameters: Optional[Dict] = None) -> ParsedCommand:
         """
-        Parse a raw text command into structured intent.
+        Parse a raw text command into structured intent using AI.
 
         Args:
             raw_command: Natural language command from player
-            parameters: Optional additional parameters from the GameCommand
+            parameters: Optional additional parameters (currently unused)
 
         Returns:
-            ParsedCommand with structured intent and confidence level
+            ParsedCommand with AI-classified intent
         """
-        if not raw_command or not raw_command.strip():
-            return ParsedCommand(
-                command_type=CommandType.UNKNOWN,
-                action="",
-                confidence=0.0
-            )
-
-        # Normalize command
-        words = raw_command.lower().strip().split()
-        if not words:
-            return ParsedCommand(
-                command_type=CommandType.UNKNOWN,
-                action=raw_command,
-                confidence=0.0
-            )
-
-        # Handle single word commands
-        if len(words) == 1:
-            return self._parse_single_word(words[0], parameters or {})
-
-        # Handle multi-word commands
-        return self._parse_multi_word(words, parameters or {})
-
-    def _parse_single_word(self, word: str, parameters: Dict) -> ParsedCommand:
-        """Parse single-word commands."""
-        # Check if it's a direction (implicit movement)
-        if word in self.movement_keywords:
-            return ParsedCommand(
-                command_type=CommandType.MOVEMENT,
-                action="go",
-                direction=word,
-                parameters=parameters,
-                confidence=0.9
-            )
-
-        # Check if it's an action verb
-        if word in self.action_verbs:
-            cmd_type = self.action_verbs[word]
-            return ParsedCommand(
-                command_type=cmd_type,
-                action=word,
-                parameters=parameters,
-                confidence=0.8
-            )
-
-        # Special case for "look" without target
-        if word == "look":
-            return ParsedCommand(
-                command_type=CommandType.LOOK,
-                action="look",
-                target="around",
-                parameters=parameters,
-                confidence=0.9
-            )
-
-        # Check if it's a known ability name (dash, shield, etc.)
-        # This handles single-word ability commands without "cast" or "use"
-        common_abilities = ["dash", "shield", "rage", "berserk", "stealth", "sneak"]
-        if word in common_abilities:
-            return ParsedCommand(
-                command_type=CommandType.ABILITY,
-                action="ability",
-                target=word,
-                parameters={**parameters, "ability_name": word},
-                confidence=0.85
-            )
-
-        return ParsedCommand(
-            command_type=CommandType.UNKNOWN,
-            action=word,
-            confidence=0.3
-        )
-
-    def _parse_multi_word(self, words: List[str], parameters: Dict) -> ParsedCommand:
-        """Parse multi-word commands."""
-        first_word = words[0]
-
-        # Special handling for inventory-related phrases
-        # "check inventory", "show inventory", "what's in my inventory", etc.
-        inventory_triggers = ["inventory", "items", "bag", "backpack", "belongings", "gear"]
-        command_text = " ".join(words).lower()
-        
-        # Check if command is asking about inventory
-        if any(trigger in command_text for trigger in inventory_triggers):
-            # Common patterns: "check inventory", "show items", "what do i have", "what's in my bag"
-            if any(phrase in command_text for phrase in [
-                "check", "show", "list", "what", "display", "see my", "view my", "my inventory"
-            ]):
-                return ParsedCommand(
-                    command_type=CommandType.INVENTORY,
-                    action="inventory",
-                    parameters=parameters,
-                    confidence=0.9
-                )
-
-        # Handle "look at <target>" before general action mapping
-        if first_word == "look" and len(words) >= 2:
-            if words[1] == "at" and len(words) >= 3:
-                target = " ".join(words[2:])
-            else:
-                target = " ".join(words[1:])
-            return ParsedCommand(
-                command_type=CommandType.EXAMINE,
-                action="examine",
-                target=target,
-                parameters=parameters,
-                confidence=0.9
-            )
-
-        # Handle "go <direction>" or "<action> <direction>"
-        if first_word in ["go", "move", "walk", "head"] and len(words) >= 2:
-            direction = words[1]
-            if direction in self.movement_keywords:
-                return ParsedCommand(
-                    command_type=CommandType.MOVEMENT,
-                    action=first_word,
-                    direction=direction,
-                    parameters=parameters,
-                    confidence=0.95
-                )
-
-        # Special handling for "cross chasm" - treat "chasm" as direction
-        if first_word in ["cross", "traverse"] and len(words) >= 2:
-            target = words[1]
-            if target == "chasm":
-                return ParsedCommand(
-                    command_type=CommandType.MOVEMENT,
-                    action=first_word,
-                    direction="chasm",
-                    target=target,
-                    parameters=parameters,
-                    confidence=0.95
-                )
-
-        # Handle ability commands (cast, activate + ability name, or "use" + known ability)
-        # "use" with items goes to item handler, but "use" + ability name is an ability
-        if first_word in ["cast", "activate"] and len(words) >= 2:
-            ability_name = " ".join(words[1:])
-            return ParsedCommand(
-                command_type=CommandType.ABILITY,
-                action="ability",
-                target=ability_name,
-                parameters={**parameters, "ability_name": ability_name},
-                confidence=0.9
-            )
-
-        # Check if "use <something>" might be an ability (like "use dash")
-        if first_word == "use" and len(words) >= 2:
-            potential_ability = " ".join(words[1:])
-            common_abilities = ["dash", "shield", "rage", "berserk", "stealth", "sneak"]
-            if words[1] in common_abilities:
-                return ParsedCommand(
-                    command_type=CommandType.ABILITY,
-                    action="ability",
-                    target=potential_ability,
-                    parameters={**parameters, "ability_name": potential_ability},
-                    confidence=0.85
-                )
-            # Otherwise fall through to item handling
-
-        # Handle "<action> <target>" patterns
-        if first_word in self.action_verbs and len(words) >= 2:
-            cmd_type = self.action_verbs[first_word]
-            target = " ".join(words[1:])  # Join remaining words as target
-            return ParsedCommand(
-                command_type=cmd_type,
-                action=first_word,
-                target=target,
-                parameters=parameters,
-                confidence=0.85
-            )
-
-        # Fallback: treat as unknown command
-        return ParsedCommand(
-            command_type=CommandType.UNKNOWN,
-            action=" ".join(words),
-            confidence=0.2
-        )
+        return await self.intent_parser.parse_command(raw_command)
 
     async def handle_command(
         self, parsed_command: ParsedCommand, game_state: Dict[str, Any]

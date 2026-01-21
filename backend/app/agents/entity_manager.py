@@ -68,7 +68,7 @@ if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
     model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
     ENTITY_AGENT = Agent(
         model=OpenAIModel(model_name),
-        result_type=EntityInteraction,
+        output_type=EntityInteraction,
         system_prompt=(
             'You are an entity interaction specialist for a text adventure game. '
             'Handle conversations with NPCs, combat with creatures, and interactions with objects. '
@@ -102,10 +102,10 @@ class EntityManager:
                     deps=self.context
                 )
                 return {
-                    "success": result.data.success,
-                    "message": result.data.message,
-                    "dialogue": result.data.dialogue or f"{entity_name} says something interesting...",
-                    "state_changes": result.data.state_changes
+                    "success": result.output.success,
+                    "message": result.output.message,
+                    "dialogue": result.output.dialogue or f"{entity_name} says something interesting...",
+                    "state_changes": result.output.state_changes
                 }
             except Exception:
                 # Fallback if AI call fails
@@ -128,10 +128,10 @@ class EntityManager:
                     deps=self.context
                 )
                 return {
-                    "success": result.data.success,
-                    "message": result.data.message,
-                    "combat_result": "combat_in_progress" if result.data.success else "failed_attack",
-                    "state_changes": result.data.state_changes
+                    "success": result.output.success,
+                    "message": result.output.message,
+                    "combat_result": "combat_in_progress" if result.output.success else "failed_attack",
+                    "state_changes": result.output.state_changes
                 }
             except Exception:
                 # Fallback if AI call fails
@@ -154,9 +154,9 @@ class EntityManager:
                     deps=self.context
                 )
                 return {
-                    "success": result.data.success,
-                    "message": result.data.message,
-                    "state_changes": result.data.state_changes
+                    "success": result.output.success,
+                    "message": result.output.message,
+                    "state_changes": result.output.state_changes
                 }
             except Exception:
                 # Fallback if AI call fails
