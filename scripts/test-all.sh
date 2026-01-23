@@ -29,14 +29,14 @@ echo ""
 echo "📋 Test Summary:"
 echo "================"
 
-# Run unit tests first
-echo "1️⃣  Unit Tests (Mocked):"
-docker-compose exec backend python -m unittest tests.test_sessions_unit -v
+# Run unit tests first (skip integration tests)
+echo "1️⃣  Unit Tests (All unit test files):"
+docker-compose exec backend python -m unittest discover -v -s tests -p "test_*_unit.py"
 unit_exit_code=$?
 
 echo ""
-echo "2️⃣  Integration Tests (Real HTTP):"
-docker-compose exec -e RUN_INTEGRATION_TESTS=1 backend python -m unittest tests.test_sessions_integration -v
+echo "2️⃣  Integration Tests (All integration test files):"
+docker-compose exec -e RUN_INTEGRATION_TESTS=1 -e API_BASE_URL=http://backend:8000 backend python -m unittest discover -v -s tests -p "test_*_integration.py"
 integration_exit_code=$?
 
 echo ""

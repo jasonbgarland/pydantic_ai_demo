@@ -25,8 +25,9 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Run integration tests with environment flag
-docker-compose exec -e RUN_INTEGRATION_TESTS=1 backend python -m unittest tests.test_sessions_integration -v
+# Run all integration tests with environment flag (discover pattern: test_*_integration.py)
+# Set API_BASE_URL for tests running inside Docker container
+docker-compose exec -e RUN_INTEGRATION_TESTS=1 -e API_BASE_URL=http://backend:8000 backend python -m unittest discover -v -s tests -p "test_*_integration.py"
 
 exit_code=$?
 

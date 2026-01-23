@@ -4,8 +4,9 @@ import unittest
 from httpx import AsyncClient, ASGITransport
 
 # Set environment variables before importing app
-os.environ['REDIS_URL'] = 'redis://localhost:6379/0'
-os.environ['DATABASE_URL'] = 'postgresql://adventure:development_password@localhost:5432/adventure_engine'
+# Use Docker service names when running in container, localhost otherwise
+os.environ['REDIS_URL'] = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+os.environ['DATABASE_URL'] = os.getenv('DATABASE_URL', 'postgresql://adventure:development_password@postgres:5432/adventure_engine')
 
 from app.main import app
 

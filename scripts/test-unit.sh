@@ -11,8 +11,8 @@ if ! docker-compose ps | grep -q "Up"; then
     sleep 5
 fi
 
-# Run unit tests with verbose output
-docker-compose exec backend python -m unittest tests.test_sessions_unit -v
+# Run all unit tests with verbose output (discover pattern: test_*_unit.py)
+docker-compose exec backend python -m unittest discover -v -s tests -p "test_*_unit.py"
 
 exit_code=$?
 

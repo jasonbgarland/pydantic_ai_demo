@@ -18,7 +18,7 @@ import time
 class TestIntentParserIntegration(unittest.TestCase):
     """Test AI intent parser with real API calls."""
     
-    BASE_URL = os.getenv('TEST_API_URL', 'http://localhost:8001')
+    BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8001')
     TIMEOUT = 15  # AI calls can take a few seconds
     game_id = None
     
@@ -190,7 +190,7 @@ class TestIntentParserIntegration(unittest.TestCase):
 class TestIntentParserPerformance(unittest.TestCase):
     """Test AI intent parser performance."""
     
-    BASE_URL = os.getenv('TEST_API_URL', 'http://localhost:8001')
+    BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8001')
     game_id = None
     
     @classmethod
