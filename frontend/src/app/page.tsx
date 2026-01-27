@@ -6,46 +6,19 @@ import { GameScreen } from "@/components/GameScreen";
 import { LoadGameModal } from "@/components/LoadGameModal";
 import { saveGame, loadGame, listSavedGames, deleteSavedGame } from "@/lib/api";
 
-interface CharacterClass {
-  name: string;
-  description: string;
-  stats: {
-    strength: number;
-    magic: number;
-    agility: number;
-    health: number;
-    stealth: number;
-  };
-  strengths: string[];
-}
-
-interface CharacterClasses {
-  [key: string]: CharacterClass;
-}
-
 interface Character {
   name: string;
   character_class: string;
-  stats: {
-    strength: number;
-    magic: number;
-    agility: number;
-    health: number;
-    stealth: number;
-  };
   level: number;
 }
 
-type GameState = "main" | "character-selection" | "character-creation" | "game";
+type GameState = "main" | "character-creation" | "game";
 
 export default function Home() {
   const [gameState, setGameState] = useState<GameState>("main");
   const [backendStatus, setBackendStatus] = useState<
     "checking" | "connected" | "failed"
   >("checking");
-  const [characterClasses, setCharacterClasses] =
-    useState<CharacterClasses | null>(null);
-  const [selectedClass, setSelectedClass] = useState<string>("");
   const [characterName, setCharacterName] = useState<string>("");
   const [character, setCharacter] = useState<Character | null>(null);
   const [showLoadModal, setShowLoadModal] = useState(false);
@@ -78,20 +51,7 @@ export default function Home() {
       }
     };
 
-    const loadCharacterClasses = async () => {
-      try {
-        const response = await fetch("http://localhost:8001/character/classes");
-        if (response.ok) {
-          const data = await response.json();
-          setCharacterClasses(data.classes);
-        }
-      } catch (error) {
-        console.error("Failed to load character classes:", error);
-      }
-    };
-
     checkBackendHealth();
-    loadCharacterClasses();
   }, []);
 
   const getStatusDisplay = () => {
@@ -108,11 +68,6 @@ export default function Home() {
   };
 
   const handleStartNewGame = () => {
-    setGameState("character-selection");
-  };
-
-  const handleClassSelect = (classKey: string) => {
-    setSelectedClass(classKey);
     setGameState("character-creation");
   };
 
@@ -126,7 +81,6 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: characterName,
-          character_class: selectedClass,
         }),
       });
 
@@ -137,7 +91,6 @@ export default function Home() {
         // Initialize game session with this character
         await initializeGame({
           name: characterName,
-          character_class: selectedClass,
         });
 
         setGameState("game");
@@ -157,7 +110,6 @@ export default function Home() {
       setGameState("main");
       setCharacter(null);
       setCharacterName("");
-      setSelectedClass("");
       window.location.reload(); // Simple way to reset all state including WebSocket
     }
   };
@@ -226,12 +178,12 @@ export default function Home() {
           <p>
             &gt; Agents Active:{" "}
             <span className="text-green-400">
-              AdventureNarrator, RoomDescriptor, InventoryManager
+              IntentParser, AdventureNarrator, RoomDescriptor, InventoryManager
             </span>
           </p>
           <p>
             &gt; Vector Store:{" "}
-            <span className="text-green-400">52 content chunks loaded</span>
+            <span className="text-green-400">5 rooms + 5 items (ChromaDB)</span>
           </p>
         </div>
 
@@ -259,100 +211,33 @@ export default function Home() {
     </div>
   );
 
-  const renderCharacterSelection = () => (
-    <div className="text-center max-w-4xl">
-      <h1 className="text-4xl font-bold mb-8">SELECT YOUR CLASS</h1>
-      <p className="mb-8">&gt; Choose your path, adventurer...</p>
-
-      {characterClasses && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {Object.entries(characterClasses).map(([key, classData]) => (
-            <div
-              key={key}
-              className="border border-green-400 p-4 hover:bg-green-400 hover:text-black cursor-pointer"
-              onClick={() => handleClassSelect(key)}
-            >
-              <h3 className="text-2xl font-bold mb-2">
-                {classData.name.toUpperCase()}
-              </h3>
-              <p className="mb-4 text-sm">{classData.description}</p>
-
-              <div className="text-left mb-4">
-                <h4 className="text-lg font-bold mb-2">Stats:</h4>
-                <p>Strength: {classData.stats.strength}</p>
-                <p>Magic: {classData.stats.magic}</p>
-                <p>Agility: {classData.stats.agility}</p>
-                <p>Health: {classData.stats.health}</p>
-                <p>Stealth: {classData.stats.stealth}</p>
-              </div>
-
-              <div className="text-left">
-                <h4 className="text-sm font-bold mb-1">Strengths:</h4>
-                {classData.strengths.map((strength, idx) => (
-                  <p key={idx} className="text-xs">
-                    • {strength}
-                  </p>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button
-        onClick={() => setGameState("main")}
-        className="mt-8 px-4 py-2 border border-green-400 hover:bg-green-400 hover:text-black"
-      >
-        Back to Main Menu
-      </button>
-    </div>
-  );
-
   const renderCharacterCreation = () => (
     <div className="text-center max-w-2xl">
-      <h1 className="text-4xl font-bold mb-8">CREATE CHARACTER</h1>
+      <h1 className="text-4xl font-bold mb-8">CREATE YOUR ADVENTURER</h1>
 
-      {characterClasses && selectedClass && (
-        <div className="border border-green-400 p-4 mb-8">
-          <h3 className="text-2xl font-bold mb-2">
-            {characterClasses[selectedClass].name.toUpperCase()}
-          </h3>
-          <p className="mb-4">{characterClasses[selectedClass].description}</p>
-
-          <div className="grid grid-cols-2 gap-4 text-left">
-            <div>
-              <h4 className="font-bold mb-2">Base Stats:</h4>
-              <p>Strength: {characterClasses[selectedClass].stats.strength}</p>
-              <p>Magic: {characterClasses[selectedClass].stats.magic}</p>
-              <p>Agility: {characterClasses[selectedClass].stats.agility}</p>
-              <p>Health: {characterClasses[selectedClass].stats.health}</p>
-              <p>Stealth: {characterClasses[selectedClass].stats.stealth}</p>
-            </div>
-            <div>
-              <h4 className="font-bold mb-2">Class Features:</h4>
-              {characterClasses[selectedClass].strengths.map(
-                (strength, idx) => (
-                  <p key={idx} className="text-sm">
-                    • {strength}
-                  </p>
-                )
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="border border-green-400 p-4 mb-8">
+        <h3 className="text-2xl font-bold mb-2">ADVENTURER</h3>
+        <p className="mb-4">
+          A brave explorer seeking fortune and glory in the legendary Cave of
+          Echoing Depths
+        </p>
+      </div>
 
       <div className="mb-8">
-        <label className="block mb-2 text-lg">
-          Enter your character's name:
-        </label>
+        <label className="block mb-2 text-lg">Enter your name:</label>
         <input
           type="text"
           value={characterName}
           onChange={(e) => setCharacterName(e.target.value)}
-          placeholder="Your character's name"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && characterName.trim()) {
+              handleCharacterCreate();
+            }
+          }}
+          placeholder="Your adventurer's name"
           className="bg-black border border-green-400 text-green-400 p-2 w-full max-w-md"
           maxLength={20}
+          autoFocus
         />
       </div>
 
@@ -362,13 +247,13 @@ export default function Home() {
           disabled={!characterName.trim()}
           className="px-6 py-2 bg-green-400 text-black disabled:bg-gray-600 disabled:text-gray-400"
         >
-          Create Character
+          Begin Adventure
         </button>
         <button
-          onClick={() => setGameState("character-selection")}
+          onClick={() => setGameState("main")}
           className="px-6 py-2 border border-green-400 hover:bg-green-400 hover:text-black"
         >
-          Back to Classes
+          Back to Main Menu
         </button>
       </div>
     </div>
@@ -404,8 +289,6 @@ export default function Home() {
     switch (gameState) {
       case "main":
         return renderMainScreen();
-      case "character-selection":
-        return renderCharacterSelection();
       case "character-creation":
         return renderCharacterCreation();
       case "game":

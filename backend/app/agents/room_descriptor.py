@@ -140,6 +140,18 @@ class RoomDescriptor:
         if location not in self.context.visited_rooms:
             self.context.visited_rooms.append(location)  # pylint: disable=no-member
 
+        # Special case: At cave entrance with the crystal
+        if location.lower() == 'cave_entrance' and game_state:
+            inventory = game_state.get('inventory', [])
+            has_crystal = any('crystal' in str(item).lower() for item in inventory)
+            if has_crystal:
+                return (
+                    "You stand at the cave entrance, daylight streaming in from the outside world. "
+                    "The Crystal of Echoing Depths pulses warmly in your hands, its blue light a beacon of your success. "
+                    "Freedom is just beyond this threshold - the adventure awaits its conclusion.\n\n"
+                    "**Type 'exit' or 'escape' to complete your quest!**"
+                )
+
         # RAG query automatically normalizes location names (Cave Entrance -> cave_entrance)
         rag_description = rag_get_room_description(location)
 
@@ -222,6 +234,37 @@ class RoomDescriptor:
 
         if direction in connections:
             new_location = connections[direction]
+
+            # Check which side of the chasm the player is on
+            if from_location == 'yawning_chasm':
+                import logging
+                logger = logging.getLogger(__name__)
+
+                temp_flags = game_state.get('temp_flags', {}) if game_state else {}
+                on_east_side = temp_flags.get('chasm_east_side', False)
+
+                logger.info("MOVEMENT CHECK: from_location=%s, direction=%s, temp_flags=%s, on_east_side=%s",
+                           from_location, direction, temp_flags, on_east_side)
+
+                if direction == 'east' and not on_east_side:
+                    # Trying to go east from west side - need to cross first
+                    return {
+                        "success": False,
+                        "new_location": from_location,
+                        "description": "You need to cross the chasm first. Try 'cross chasm' with the right equipment.",
+                        "blocked_reason": "need_to_cross_east"
+                    }
+
+                if direction == 'west' and on_east_side:
+                    # Trying to go west from east side - need to cross back first
+                    return {
+                        "success": False,
+                        "new_location": from_location,
+                        "description": "The chasm blocks your path back west. You need to cross it again first.",
+                        "blocked_reason": "need_to_cross_west"
+                    }
+
+            # Movement allowed - get description
             description = await self.get_room_description(new_location, game_state=game_state)
 
             return {

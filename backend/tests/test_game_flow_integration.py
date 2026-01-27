@@ -36,7 +36,7 @@ class TestSessionManagement(unittest.TestCase):
 
         # Verify session data
         self.assertEqual(session["character"]["name"], "TestHero")
-        self.assertEqual(session["character"]["character_class"], "warrior")
+        self.assertEqual(session["character"]["character_class"], "adventurer")
         self.assertEqual(session["location"], "cave_entrance")
         self.assertEqual(len(session["inventory"]), 0)
         self.assertEqual(session["turn_count"], 0)
@@ -49,7 +49,7 @@ class TestSessionManagement(unittest.TestCase):
         game_id = self.test_create_character_and_start_game()
 
         # Execute multiple commands
-        commands = ["look around", "take rope", "inventory"]
+        commands = ["look around", "take magical rope", "inventory"]
 
         for cmd in commands:
             response = requests.post(
@@ -68,7 +68,7 @@ class TestSessionManagement(unittest.TestCase):
 
         data = final_response.json()
         self.assertGreater(data["turn"], 0)
-        self.assertIn("rope", data["session"]["inventory"])
+        self.assertIn("magical_rope", data["session"]["inventory"])
 
 
 @unittest.skipUnless(os.getenv('RUN_INTEGRATION_TESTS'), 'Integration tests disabled')
@@ -120,8 +120,9 @@ class TestMovement(unittest.TestCase):
         self.assertFalse(data["success"])
         self.assertEqual(data["session"]["location"], "cave_entrance")
 
-        # Verify error message indicates invalid direction
-        self.assertIn("cannot", data["response"].lower())
+        # Verify error message indicates invalid direction (can't or cannot)
+        response_lower = data["response"].lower()
+        self.assertTrue("cannot" in response_lower or "can't" in response_lower or "can not" in response_lower)
 
     def test_bidirectional_movement(self):
         """Test moving north then back south."""

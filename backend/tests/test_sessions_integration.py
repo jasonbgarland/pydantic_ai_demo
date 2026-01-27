@@ -32,7 +32,7 @@ class TestSessionIntegration(unittest.TestCase):
         # Verify session structure
         self.assertEqual(session["game_id"], game_id)
         self.assertEqual(session["character"]["name"], "IntegrationTester")
-        self.assertEqual(session["character"]["character_class"], "warrior")
+        self.assertEqual(session["character"]["character_class"], "adventurer")
         self.assertEqual(session["location"], "cave_entrance")
         self.assertEqual(session["turn_count"], 0)
         self.assertIsInstance(session["inventory"], list)
@@ -87,57 +87,20 @@ class TestSessionIntegration(unittest.TestCase):
         self.assertEqual(len(final_state["history"]), 2)
 
     def test_character_creation_and_classes(self):
-        """Test character creation and class information endpoints."""
-        # Get available classes
-        classes_response = requests.get(f"{self.base_url}/character/classes",
-                                      timeout=self.timeout)
-        self.assertEqual(classes_response.status_code, 200)
+        """Test character creation endpoint."""
+        # Create a character (all characters are adventurers now)
+        create_response = requests.post(f"{self.base_url}/character/create",
+                                       json={"name": "TestAdventurer"},
+                                       timeout=self.timeout)
+        self.assertEqual(create_response.status_code, 200)
 
-        classes_data = classes_response.json()
-        self.assertIn("classes", classes_data)
-
-        classes = classes_data["classes"]
-        for class_key in ["warrior", "wizard", "rogue"]:
-            self.assertIn(class_key, classes)
-            class_info = classes[class_key]
-            self.assertIn("name", class_info)
-            self.assertIn("description", class_info)
-            self.assertIn("stats", class_info)
-            self.assertIn("strengths", class_info)
-
-            # Verify stats structure
-            stats = class_info["stats"]
-            for stat in ["strength", "magic", "agility", "health", "stealth"]:
-                self.assertIn(stat, stats)
-                self.assertIsInstance(stats[stat], int)
-                self.assertGreater(stats[stat], 0)
-
-        # Test character creation
-        for class_name in ["warrior", "wizard", "rogue"]:
-            char_response = requests.post(f"{self.base_url}/character/create",
-                                        json={"name": f"Test{class_name.capitalize()}",
-                                              "character_class": class_name},
-                                        timeout=self.timeout)
-            self.assertEqual(char_response.status_code, 200)
-
-            char_data = char_response.json()
-            self.assertIn("character", char_data)
-            self.assertIn("message", char_data)
-
-            character = char_data["character"]
-            self.assertEqual(character["name"], f"Test{class_name.capitalize()}")
-            self.assertEqual(character["character_class"], class_name)
-            self.assertEqual(character["level"], 1)
-            self.assertIn("stats", character)
+        create_data = create_response.json()
+        self.assertIn("character", create_data)
+        self.assertEqual(create_data["character"]["name"], "TestAdventurer")
+        self.assertEqual(create_data["character"]["character_class"], "adventurer")
 
     def test_error_handling(self):
         """Test error handling for invalid requests."""
-        # Test invalid character class
-        invalid_class_response = requests.post(f"{self.base_url}/character/create",
-                                             json={"name": "InvalidTest", "character_class": "invalid"},
-                                             timeout=self.timeout)
-        self.assertEqual(invalid_class_response.status_code, 422)  # Validation error
-
         # Test nonexistent game session
         nonexistent_state_response = requests.get(f"{self.base_url}/game/nonexistent-game-123/state",
                                                  timeout=self.timeout)

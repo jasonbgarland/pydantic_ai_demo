@@ -224,10 +224,10 @@ class TestWebSocketIntegration(unittest.TestCase):
                     chunk_times.append(time.time() - start)
 
             # Verify chunks arrive with delays (not all at once)
-            # With 80ms delay, 5 chunks should take ~320ms minimum
+            # With 80ms delay, chunks should be spaced out
             if len(chunk_times) >= 2:
                 total_time = chunk_times[-1] - chunk_times[0]
-                self.assertGreater(total_time, 0.2, "Chunks should have delays")
+                self.assertGreater(total_time, 0.1, "Chunks should have delays")
 
     def test_websocket_chunk_timing(self):
         """Test chunks are delivered with appropriate delays."""

@@ -102,7 +102,7 @@ class TestEdgeCases(unittest.TestCase):
         """Test picking up items with mixed case."""
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take LEATHER PACK"},
+            json={"command": "take MAGICAL ROPE"},
             timeout=TIMEOUT
         )
 
@@ -110,13 +110,13 @@ class TestEdgeCases(unittest.TestCase):
         # Should work due to normalization
         self.assertTrue(data["success"])
         inventory = data.get("session", {}).get("inventory", [])
-        self.assertIn("leather_pack", inventory)
+        self.assertIn("magical_rope", inventory)
 
     def test_extra_whitespace_in_commands(self):
         """Test commands with extra whitespace."""
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take    leather     pack"},
+            json={"command": "take    magical     rope"},
             timeout=TIMEOUT
         )
 

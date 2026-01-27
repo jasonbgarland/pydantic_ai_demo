@@ -1,10 +1,10 @@
 """FastAPI adventure engine with character classes and Redis session management."""
 import asyncio
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
-from enum import Enum
 from typing import Dict, Optional
 
 from dotenv import load_dotenv
@@ -19,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agents.adventure_narrator import AdventureNarrator
 from app.agents.room_descriptor import RoomDescriptor
 from app.agents.inventory_manager import InventoryManager
-from app.agents.entity_manager import EntityManager
 
 # Import database models and session
 from app.db import get_db, init_db
@@ -39,62 +38,20 @@ from app.mechanics import (
 # Load environment variables
 load_dotenv()
 
-# Character class definitions
-class CharacterClass(str, Enum):
-    """Available character classes with different stat distributions."""
-    WARRIOR = "warrior"
-    WIZARD = "wizard"
-    ROGUE = "rogue"
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-class Stats(BaseModel):
-    """Character statistics model."""
-    strength: int
-    magic: int
-    agility: int
-    health: int
-    stealth: int
-
-class Character(BaseModel):
-    """Character model with class and stats."""
-    name: str
-    character_class: CharacterClass
-    stats: Stats
-    level: int = 1
-
+# Simplified character model - classes are cosmetic only
 class CharacterCreationRequest(BaseModel):
     """Request model for creating a new character."""
     name: str
-    character_class: CharacterClass
+    character_class: Optional[str] = "adventurer"  # Cosmetic only, no stat differences
 
 class GameCommand(BaseModel):
     """Game command model for player actions."""
     command: str
     parameters: Optional[Dict] = None
-
-# Class stat templates
-CLASS_STATS = {
-    CharacterClass.WARRIOR: Stats(
-        strength=15,
-        magic=5,
-        agility=10,
-        health=20,
-        stealth=5
-    ),
-    CharacterClass.WIZARD: Stats(
-        strength=5,
-        magic=18,
-        agility=8,
-        health=12,
-        stealth=7
-    ),
-    CharacterClass.ROGUE: Stats(
-        strength=8,
-        magic=6,
-        agility=17,
-        health=10,
-        stealth=16
-    )
-}
 
 app = FastAPI(
     title="Adventure Engine API",
@@ -118,11 +75,9 @@ redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
 # Initialize adventure agents
 room_descriptor = RoomDescriptor()
 inventory_manager = InventoryManager()
-entity_manager = EntityManager()
 adventure_narrator = AdventureNarrator(
     room_descriptor=room_descriptor,
-    inventory_manager=inventory_manager,
-    entity_manager=entity_manager
+    inventory_manager=inventory_manager
 )
 
 
@@ -181,90 +136,69 @@ async def health_check():
     """Health check endpoint for load balancers and monitoring."""
     return {"status": "healthy"}
 
-@app.get("/character/classes")
-async def get_character_classes():
-    """Get available character classes with their stat templates"""
-    return {
-        "classes": {
-            CharacterClass.WARRIOR: {
-                "name": "Warrior",
-                "description": "Strong and resilient fighter, excels in combat and "
-                              "physical challenges",
-                "stats": CLASS_STATS[CharacterClass.WARRIOR].model_dump(),
-                "strengths": ["Combat", "Breaking obstacles", "High health",
-                             "Intimidation"]
-            },
-            CharacterClass.WIZARD: {
-                "name": "Wizard",
-                "description": "Master of arcane arts, solves problems with magic "
-                              "and intellect",
-                "stats": CLASS_STATS[CharacterClass.WIZARD].model_dump(),
-                "strengths": ["Magic spells", "Ancient knowledge", "Puzzle solving",
-                             "Enchanted items"]
-            },
-            CharacterClass.ROGUE: {
-                "name": "Rogue",
-                "description": "Sneaky and agile, masters of stealth and precision",
-                "stats": CLASS_STATS[CharacterClass.ROGUE].model_dump(),
-                "strengths": ["Stealth", "Lockpicking", "Trap detection",
-                             "Agility challenges"]
-            }
-        }
-    }
-
 @app.post("/character/create")
 async def create_character(request: CharacterCreationRequest):
-    """Create a new character with the specified class"""
-    character = Character(
-        name=request.name,
-        character_class=request.character_class,
-        stats=CLASS_STATS[request.character_class]
-    )
-
-    # NOTE: Character saved to Redis session when game starts
-    return {
-        "character": character.model_dump(),
-        "message": f"Created {request.character_class.value} '{request.name}' "
-                   f"successfully!"
+    """Create a new character"""
+    character = {
+        "name": request.name,
+        "character_class": "adventurer",
+        "level": 1
     }
 
-@app.get("/character/stats/{character_class}")
-async def get_class_stats(character_class: CharacterClass):
-    """Get stat breakdown for a specific character class"""
     return {
-        "class": character_class.value,
-        "stats": CLASS_STATS[character_class].model_dump()
+        "character": character,
+        "message": f"Created adventurer '{request.name}' successfully!"
     }
 
 @app.post("/game/start")
 async def start_game(request: CharacterCreationRequest):
     """Start a new game session for the provided character info"""
-    # Build character payload
+    # Build character payload (character_class is cosmetic only)
     character = {
         "name": request.name,
-        "character_class": request.character_class.value,
-        "stats": CLASS_STATS[request.character_class].model_dump(),
-        "level": 1
+        "character_class": request.character_class or "adventurer",
+        "level": 1,
+        "hp": 20
     }
 
-    # initialize HP from stats
-    character["hp"] = character["stats"].get("health", 10)
-
     session = await create_session(character)
-    return {"game_id": session["game_id"], "session": session}
+
+    # Create introduction narrative
+    intro_narrative = f"""
+**Welcome, {character['name']}!**
+
+You stand at the entrance to the legendary Cave of Echoing Depths, a place whispered about in tavern tales and ancient scrolls. Deep within these caverns lies the **Crystal of Echoing Depths**, an artifact of immense power said to contain the wisdom of forgotten civilizations.
+
+Your quest is simple but perilous: **retrieve the crystal and escape the cave alive**.
+
+The previous explorer who sought this treasure left behind equipment and notes but never returned. Their journal may hold crucial warnings about what lies ahead.
+
+Type 'look around' to survey your surroundings, or dive straight in with commands like 'go north' to explore.
+
+**Your adventure begins now...**
+"""
+
+    return {
+        "game_id": session["game_id"],
+        "session": session,
+        "intro_narrative": intro_narrative
+    }
 
 
-@app.post("/game/{game_id}/command")
-async def process_command(game_id: str, command: GameCommand):
-    """Process a command within an active game session using AI agents.
+async def _process_game_command_internal(game_id: str, command_text: str, parameters: Optional[Dict] = None):
+    """Internal helper to process a game command. Shared by REST API and WebSocket.
 
-    Loads the session, parses the command through AdventureNarrator,
-    coordinates with specialist agents (RoomDescriptor, InventoryManager, EntityManager),
-    and returns a rich narrative response with updated game state.
+    Args:
+        game_id: The game session ID
+        command_text: The command text from the player
+        parameters: Optional command parameters
+
+    Returns:
+        Tuple of (session, game_response, full_narrative) or (None, None, error_dict) on error
     """
     session = await get_session(game_id)
     if not session:
-        return {"error": "session_not_found", "message": "Game session not found"}
+        return None, None, {"error": "session_not_found", "message": "Game session not found"}
 
     # Initialize game mechanics if not present (for backward compatibility)
     initialize_game_mechanics(session)
@@ -276,48 +210,85 @@ async def process_command(game_id: str, command: GameCommand):
     session.setdefault("inventory", [])
     session.setdefault("visited_rooms", [])
 
+    # DEBUG: Log current inventory state
+    logger.info("SESSION LOADED - Game: %s, Turn: %s, Inventory: %s, Location: %s, temp_flags: %s",
+                game_id, session['turn_count'], session.get('inventory', []),
+                session.get('location'), session.get('temp_flags', {}))
+
     # Record command in history
     history = session.setdefault("history", [])
-    history.append({"turn": session["turn_count"], "command": command.command,
-                   "params": command.parameters})
+    history.append({"turn": session["turn_count"], "command": command_text, "params": parameters})
 
-    try:
-        # Parse command using AdventureNarrator (AI-powered intent classification)
-        parsed_command = await adventure_narrator.parse_command(command.command, command.parameters)
+    # Parse command using AdventureNarrator (AI-powered intent classification)
+    parsed_command = await adventure_narrator.parse_command(command_text, parameters)
 
-        # Process command through agent coordination
-        character = session.get("character", {})
-        character_class = character.get("character_class", "") if isinstance(character, dict) else ""
-        game_response = await adventure_narrator.handle_command(
-            parsed_command=parsed_command,
-            game_state={
-                "location": session["location"],
-                "inventory": session["inventory"],
-                "visited_rooms": session["visited_rooms"],
-                "character": character,
-                "character_class": character_class,
-                "turn_count": session["turn_count"],
-                "collapse_triggered": session.get("collapse_triggered", False),
-                "turns_since_collapse": session.get("turns_since_collapse", 0)
-            }
-        )
+    # Process command through agent coordination
+    character = session.get("character", {})
+    character_class = character.get("character_class", "") if isinstance(character, dict) else ""
+    game_response = await adventure_narrator.handle_command(
+        parsed_command=parsed_command,
+        game_state={
+            "location": session["location"],
+            "inventory": session["inventory"],
+            "visited_rooms": session["visited_rooms"],
+            "character": character,
+            "character_class": character_class,
+            "turn_count": session["turn_count"],
+            "collapse_triggered": session.get("collapse_triggered", False),
+            "turns_since_collapse": session.get("turns_since_collapse", 0),
+            "temp_flags": session.get("temp_flags", {})
+        }
+    )
 
-        # Apply game state updates from agent response
-        if game_response.game_state_updates:
-            for key, value in game_response.game_state_updates.items():
+    # Apply game state updates from agent response
+    if game_response.game_state_updates:
+        logger.info("APPLYING UPDATES: %s", game_response.game_state_updates)
+        for key, value in game_response.game_state_updates.items():
+            # Special handling for temp_flags - merge instead of replace
+            if key == 'temp_flags' and isinstance(value, dict):
+                if 'temp_flags' not in session:
+                    session['temp_flags'] = {}
+                session['temp_flags'].update(value)
+            else:
                 session[key] = value
 
-        # Use the narrative from the agent response
-        full_narrative = game_response.narrative
+    # DEBUG: Log inventory and temp_flags after updates
+    logger.info("SESSION AFTER UPDATES - Inventory: %s, Location: %s, temp_flags: %s",
+                session.get('inventory', []), session.get('location'), session.get('temp_flags', {}))
 
-        # Check for victory or defeat conditions
+    # Use the narrative from the agent response
+    full_narrative = game_response.narrative
+
+    # Check for victory or defeat conditions
+    # Skip if the command itself just set the game_status (to avoid duplicate narratives)
+    if 'game_status' not in game_response.game_state_updates:
         status_narrative = update_game_status(session)
         if status_narrative:
             # Game has ended (victory or defeat)
             full_narrative = f"{full_narrative}\n{status_narrative}"
 
-        # Save the updated session
-        await save_session(game_id, session)
+    # Save the updated session
+    await save_session(game_id, session)
+
+    return session, game_response, full_narrative
+
+
+@app.post("/game/{game_id}/command")
+async def process_command(game_id: str, command: GameCommand):
+    """Process a command within an active game session using AI agents.
+
+    Loads the session, parses the command through AdventureNarrator,
+    coordinates with specialist agents (RoomDescriptor, InventoryManager),
+    and returns a rich narrative response with updated game state.
+    """
+    try:
+        session, game_response, full_narrative = await _process_game_command_internal(
+            game_id, command.command, command.parameters
+        )
+
+        if session is None:
+            # Error occurred (result contains error dict)
+            return full_narrative
 
         return {
             "game_id": game_id,
@@ -397,58 +368,32 @@ async def websocket_game_endpoint(websocket: WebSocket, game_id: str):
             command_text = data.get("command", "")
             parameters = data.get("parameters")
 
-            # Update session state
-            session["turn_count"] = session.get("turn_count", 0) + 1
-            session.setdefault("location", "cave_entrance")
-            session.setdefault("inventory", [])
-            session.setdefault("visited_rooms", [])
-
-            # Record command in history
-            history = session.setdefault("history", [])
-            history.append({
-                "turn": session["turn_count"],
-                "command": command_text,
-                "params": parameters
-            })
-
             try:
-                # Parse command using AdventureNarrator (AI-powered intent classification)
-                parsed_command = await adventure_narrator.parse_command(command_text, parameters)
-
                 # Send typing indicator
                 await websocket.send_json({
                     "type": "typing",
                     "agent": "adventure_narrator"
                 })
 
-                # Process command through agent coordination with streaming
-                # NOTE: Currently using handle_command which returns complete response
-                # TODO: Implement streaming at the agent level for real LLM token streaming
-                # This would require:
-                # 1. RoomDescriptor/other agents to use agent.run_stream() instead of agent.run()
-                # 2. AdventureNarrator to yield chunks as agents generate them
-                # 3. Async generator pattern: async for chunk in narrator.handle_command_stream(...)
-
-                character = session.get("character", {})
-                character_class = character.get("character_class", "") if isinstance(character, dict) else ""
-
-                game_response = await adventure_narrator.handle_command(
-                    parsed_command=parsed_command,
-                    game_state={
-                        "location": session["location"],
-                        "inventory": session["inventory"],
-                        "visited_rooms": session["visited_rooms"],
-                        "character": character,
-                        "character_class": character_class,
-                        "turn_count": session["turn_count"]
-                    }
+                # Process command using shared internal function
+                # This ensures WebSocket and REST API have identical behavior
+                session, game_response, full_narrative = await _process_game_command_internal(
+                    game_id, command_text, parameters
                 )
+
+                if session is None:
+                    # Error occurred (full_narrative contains error dict)
+                    await websocket.send_json({
+                        "type": "error",
+                        "error": full_narrative.get("error", "unknown_error"),
+                        "message": full_narrative.get("message", "An error occurred")
+                    })
+                    continue
 
                 # Stream the narrative response in chunks (word-by-word for dramatic effect)
                 # NOTE: This is "fake streaming" - we already have the full response
                 # Real streaming would send tokens as the LLM generates them
-                narrative = game_response.narrative
-                words = narrative.split()
+                words = full_narrative.split()
 
                 for i, word in enumerate(words):
                     # Add space between words (except for first word)
@@ -459,15 +404,7 @@ async def websocket_game_endpoint(websocket: WebSocket, game_id: str):
                     }
                     await websocket.send_json(chunk_msg)
                     # Small delay to create streaming effect (adjust for desired speed)
-                    await asyncio.sleep(0.08)  # 80ms between words = ~12 words/second
-
-                # Apply game state updates from agent response
-                if game_response.game_state_updates:
-                    for key, value in game_response.game_state_updates.items():
-                        session[key] = value
-
-                # Save the updated session
-                await save_session(game_id, session)
+                    await asyncio.sleep(0.04)  # 40ms between words = ~25 words/second
 
                 # Send completion message with full state
                 await websocket.send_json({
@@ -489,8 +426,6 @@ async def websocket_game_endpoint(websocket: WebSocket, game_id: str):
                     "message": error_message,
                     "error": str(exc)
                 })
-
-                await save_session(game_id, session)
 
     except WebSocketDisconnect:
         # Client disconnected - clean up if needed
@@ -521,7 +456,7 @@ class SaveGameResponse(BaseModel):
     saved_at: str
 
 
-@app.post("/game/{game_id}/save", response_model=SaveGameResponse)
+@app.post("/game/{game_id}/save")
 async def save_game_to_database(
     game_id: str,
     request: SaveGameRequest,

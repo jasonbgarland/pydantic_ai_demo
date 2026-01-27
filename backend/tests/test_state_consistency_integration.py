@@ -26,7 +26,7 @@ class TestStateConsistency(unittest.TestCase):
         # Pick up an item
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take leather pack"},
+            json={"command": "take magical rope"},
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
@@ -34,7 +34,7 @@ class TestStateConsistency(unittest.TestCase):
         # Try to pick it up again
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take leather pack"},
+            json={"command": "take magical rope"},
             timeout=TIMEOUT
         )
 
@@ -49,7 +49,7 @@ class TestStateConsistency(unittest.TestCase):
         # Pick up item
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take pack"},
+            json={"command": "take magical rope"},
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
@@ -71,7 +71,7 @@ class TestStateConsistency(unittest.TestCase):
 
         data = response.json()
         inventory = data.get("session", {}).get("inventory", [])
-        self.assertIn("leather_pack", inventory,
+        self.assertIn("magical_rope", inventory,
                      "Item should persist in inventory across rooms")
 
     def test_location_updates_correctly(self):
@@ -98,26 +98,26 @@ class TestStateConsistency(unittest.TestCase):
 
     def test_multiple_sequential_actions(self):
         """Test a sequence of actions maintains consistent state."""
-        # Pick up item 1
+        # Pick up magical rope from cave entrance
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take rope"},
+            json={"command": "take magical rope"},
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
 
-        # Pick up item 2
-        response = requests.post(
-            f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take torch"},
-            timeout=TIMEOUT
-        )
-        self.assertTrue(response.json()["success"])
-
-        # Move rooms
+        # Move to hidden alcove (north from cave entrance)
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
             json={"command": "go north"},
+            timeout=TIMEOUT
+        )
+        self.assertTrue(response.json()["success"])
+
+        # Pick up healing potion from hidden alcove
+        response = requests.post(
+            f"{BASE_URL}/game/{self.game_id}/command",
+            json={"command": "take healing potion"},
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
@@ -134,17 +134,17 @@ class TestStateConsistency(unittest.TestCase):
         location = data.get("session", {}).get("location")
 
         # Should have both items
-        self.assertIn("rope", inventory)
-        self.assertIn("torch", inventory)
+        self.assertIn("magical_rope", inventory)
+        self.assertIn("healing_potion", inventory)
         # Should be in new location
         self.assertEqual(location, "hidden_alcove")
 
     def test_picked_items_not_examinable_in_original_room(self):
         """Items picked up shouldn't be examinable in the room anymore."""
-        # Pick up the pack
+        # Pick up the magical rope
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "take pack"},
+            json={"command": "take magical rope"},
             timeout=TIMEOUT
         )
         self.assertTrue(response.json()["success"])
@@ -152,7 +152,7 @@ class TestStateConsistency(unittest.TestCase):
         # Try to examine it
         response = requests.post(
             f"{BASE_URL}/game/{self.game_id}/command",
-            json={"command": "examine leather pack"},
+            json={"command": "examine magical rope"},
             timeout=TIMEOUT
         )
 

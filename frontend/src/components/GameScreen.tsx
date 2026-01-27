@@ -111,7 +111,7 @@ export function GameScreen({
 
   return (
     <div className="max-w-5xl w-full">
-      {/* Character Stats Header */}
+      {/* Character Header */}
       <div className="border border-green-400 p-4 mb-4">
         <div className="flex justify-between items-center">
           <div>
@@ -119,33 +119,8 @@ export function GameScreen({
               {session.character.name.toUpperCase()}
             </h2>
             <p className="text-sm">
-              Level {session.character.level}{" "}
-              {session.character.character_class.charAt(0).toUpperCase() +
-                session.character.character_class.slice(1)}
+              Level {session.character.level} Adventurer
             </p>
-          </div>
-
-          <div className="grid grid-cols-5 gap-4 text-center">
-            <div>
-              <p className="font-bold text-xs">STR</p>
-              <p className="text-lg">{session.character.stats.strength}</p>
-            </div>
-            <div>
-              <p className="font-bold text-xs">MAG</p>
-              <p className="text-lg">{session.character.stats.magic}</p>
-            </div>
-            <div>
-              <p className="font-bold text-xs">AGI</p>
-              <p className="text-lg">{session.character.stats.agility}</p>
-            </div>
-            <div>
-              <p className="font-bold text-xs">HP</p>
-              <p className="text-lg">{session.character.stats.health}</p>
-            </div>
-            <div>
-              <p className="font-bold text-xs">STL</p>
-              <p className="text-lg">{session.character.stats.stealth}</p>
-            </div>
           </div>
 
           <div className="text-right text-sm">
@@ -184,7 +159,7 @@ export function GameScreen({
                 <p className="text-yellow-400 mb-1">&gt; {entry.command}</p>
               )}
               <p
-                className={`pl-4 ${
+                className={`pl-4 whitespace-pre-line ${
                   entry.success === false ? "text-red-400" : "text-green-400"
                 }`}
               >
@@ -291,14 +266,14 @@ export function GameScreen({
       <div className="border border-gray-600 p-3 text-xs text-gray-500">
         <p className="font-bold mb-1">Common Commands:</p>
         <div className="grid grid-cols-2 gap-1">
-          <p>• look / look around - Describe current location</p>
-          <p>• go [direction] - Move (north, south, east, west)</p>
-          <p>• examine [object] - Inspect something closely</p>
-          <p>• take [item] - Pick up an item</p>
-          <p>• use [item] - Use an item from inventory</p>
+          <p>• look around - Describe current location</p>
+          <p>• go [direction] - Move between rooms</p>
+          <p>• examine [item] - Inspect items closely</p>
+          <p>• take [item] - Pick up items</p>
+          <p>• claim crystal - Retrieve the prize</p>
+          <p>• cross chasm - Cross obstacles</p>
+          <p>• escape - Leave the cave</p>
           <p>• inventory - Check your items</p>
-          <p>• talk [entity] - Speak with someone</p>
-          <p>• drop [item] - Drop an item</p>
         </div>
       </div>
 

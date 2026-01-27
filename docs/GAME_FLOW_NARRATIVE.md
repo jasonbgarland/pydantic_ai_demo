@@ -1,23 +1,31 @@
 # Game Flow Narrative Design
 
-## Crystal of Echoing Depths - Complete Playthrough Scenarios
+## Crystal of Echoing Depths - AI RPG Demo
 
-**Status**: ✅ **IMPLEMENTED & TESTED** (January 2026)  
-**Version**: 1.0  
-**Original Design**: December 28, 2025  
-**Purpose**: Complete game flow scenarios - fully implemented with all mechanics and content
+**Status**: ✅ **IMPLEMENTED** (January 2026)  
+**Version**: 2.0 - Simplified Demo  
+**Purpose**: AI-powered text adventure demonstrating agent orchestration
+
+> **Note**: This is a demonstration of AI agent capabilities, not a full RPG.  
+> The focus is on natural language understanding and agent coordination.
 
 ---
 
 ## Overview
 
-A 5-room adventure with a classic three-act structure where players must:
+A simple 5-room adventure demonstrating AI agent capabilities:
 
-1. **Explore** the cave and cross the dangerous chasm
-2. **Retrieve** the Crystal of Echoing Depths treasure
-3. **Escape** the collapsing cave before being trapped
+1. **Explore** the cave using natural language commands
+2. **Cross the chasm** using items and problem-solving
+3. **Retrieve** the Crystal of Echoing Depths
+4. **Exit** to achieve victory
 
-Each character class (Warrior, Wizard, Rogue) has unique approaches to challenges.
+**Key Features**:
+
+- Natural language command parsing (AI-powered)
+- Dynamic room descriptions (AI-generated)
+- Intelligent item interactions
+- Simple puzzle mechanics (chasm crossing, victory conditions)
 
 ---
 
@@ -36,37 +44,36 @@ Each character class (Warrior, Wizard, Rogue) has unique approaches to challenge
 ```
 
 **Starting Location**: Cave Entrance  
-**Victory Condition**: Exit west from Cave Entrance with the crystal  
-**Failure Conditions**: Die from fall, trapped by collapse, fail to escape in time
+**Victory Condition**: Possess the crystal + use "exit" or "escape" command at Cave Entrance  
+**Implementation Notes**:
+
+- No health/damage system (simplified for demo)
+- No turn limits (removed for accessibility)
+- No class-specific mechanics (all classes play identically)
+- Focus is on natural language understanding and agent orchestration
 
 ---
 
-## Act 1: Exploration and Crossing the Chasm
+## Simple Playthrough Guide
 
-### Scene 1: Cave Entrance (Starting Point)
+### Step 1: Cave Entrance (Starting Point)
 
-**Available Actions**:
+**Example Commands** (natural language works!):
 
-- `look around` - Describes the cave entrance, mentions rope on wall
-- `examine rope` - Describes magical rope (can be taken)
-- `take rope` - Adds rope to inventory
-- `go north` - Discover Hidden Alcove (optional)
-- `go east` - Enter Yawning Chasm (main path)
+- `look around` / `examine the cave` - AI generates room description
+- `take rope` / `grab the rope from the wall` - Pick up the rope
+- `go north` / `explore north` - Discover Hidden Alcove (optional)
+- `go east` / `head east` - Enter Yawning Chasm (main path)
 
 **Key Items**:
 
-- **Magical Rope**: Essential for crossing chasm safely
+- **Magical Rope**: Required for crossing the chasm
 
-**Success Path**:
+**Recommended Path**:
 
-1. Player examines surroundings
-2. Player takes rope
-3. Player moves east to chasm
-
-**Failure Path**:
-
-- Skip rope → Increased difficulty at chasm
-- Go east immediately → Miss optional gear from alcove
+1. Take the rope from the wall
+2. Optionally explore north to Hidden Alcove
+3. Head east to the chasm
 
 ---
 
@@ -76,30 +83,21 @@ Each character class (Warrior, Wizard, Rogue) has unique approaches to challenge
 
 - `look around` - Describes hidden storage area
 - `examine alcove` - Reveals ancient climbing gear
-- `search alcove` - Alternative to examine
+- `setep alcove` - Alternative to examine
 - `take climbing gear` - Adds gear to inventory (if available)
-- `go south` - Return to Cave Entrance
+- Example Commands\*\*:
 
-**Key Items**:
+- `look around` / `what's here?` - AI describes the alcove
+- `examine alcove` / `search the area` - Look for items
+- `take climbing gear` / `pick up the journal` - Grab items
+- `go south` / `return to entrance` - Go back
 
-- **Climbing Gear**: Provides bonus for chasm crossing
+**Optional Items**:
 
-**Success Path**:
+- **Climbing Gear**: Extra flavor for chasm crossing
+- **Explorer's Journal**: Contains helpful hints
 
-1. Player explores thoroughly
-2. Player finds and takes climbing gear
-3. Player returns to entrance and continues east
-
-**Failure Path**:
-
-- Miss this room entirely → No bonus gear
-- Don't examine carefully → Miss the gear
-
----
-
-### Scene 3: Yawning Chasm (Critical Challenge)
-
-**Available Actions**:
+**Note**: This room is purely optional and exists to demonstrate exploration mechanics
 
 - `look around` - Describes dangerous chasm, width, darkness below
 - `examine chasm` - Reveals depth, danger, need for rope
@@ -108,52 +106,21 @@ Each character class (Warrior, Wizard, Rogue) has unique approaches to challenge
 - `go west` - Return to Cave Entrance (retreat)
 - `go south` - Discover Collapsed Passage (blocked/dangerous)
 
-**Class-Specific Approaches**:
+**Example Commands**:
 
-#### Warrior Approach:
+- `look around` / `examine the chasm` - AI describes the dangerous gap
+- `cross chasm` / `use rope to cross` - Main puzzle solution
+- `go west` - Return to Cave Entrance
+- `go south` - Discover Collapsed Passage (dead end)
 
-- **With rope**: Uses strength to secure rope firmly, crosses safely
-- **Without rope**: Attempts daring leap (AGI check, high risk)
-- **Unique action**: `jump across` - Strength-based athletic feat
-- **Success rate**: 80% with rope, 30% without
+**Puzzle Mechanics**:
 
-#### Wizard Approach:
+- **With rope**: Successfully cross to east side (sets temp_flag: chasm_east_side)
+- **Without rope**: AI narrative warns you can't cross safely
+- **Crossing back**: Toggles the temp_flag, allowing movement west again
+- **Movement validation**: RoomDescriptor agent checks temp_flags before allowing east/west movement
 
-- **With rope**: Uses magic to levitate rope into perfect position
-- **Without rope**: Casts feather fall or levitation spell
-- **Unique action**: `cast levitate` - Magic-based crossing
-- **Success rate**: 90% with rope, 60% with spell, 20% without
-
-#### Rogue Approach:
-
-- **With rope**: Uses agility to traverse rope gracefully
-- **Without rope**: Uses grappling hook or climbs walls
-- **Unique action**: `scale walls` - Agility-based climbing
-- **Success rate**: 85% with rope, 50% with climbing gear, 25% without
-
-**Success Path**:
-
-1. Player has rope in inventory
-2. Player uses rope to cross
-3. System narrates successful crossing based on class
-4. Player moves east to Crystal Treasury
-
-**Failure Paths**:
-
-- **No equipment**:
-  - Warrior: Falls into chasm (instant death or severe injury)
-  - Wizard: Spell fails, falls (takes damage, can retry)
-  - Rogue: Loses grip, falls (takes damage, can retry if agile enough)
-- **Equipment but bad execution**: Takes damage, can retry
-- **Critical failure**: Death, game over
-
----
-
-## Act 2: The Treasure
-
-### Scene 4: Crystal Treasury (Prize)
-
-**Available Actions**:
+**Implementation Note**: This demonstrates stateful AI agents that remember crossing status using temp_flags
 
 - `look around` - Describes treasury, crystal on pedestal, murals
 - `examine crystal` - Reveals it's the Crystal of Echoing Depths
@@ -190,45 +157,29 @@ Each character class (Warrior, Wizard, Rogue) has unique approaches to challenge
 
 ---
 
-## Act 3: The Escape
-
-### Scene 5: Escape Sequence (Time Pressure)
+### Step 4: Crystal Treasury (The Goalressure)
 
 **Turn Limit**: 5-7 turns depending on class and equipment
 
-**Environmental Changes**:
+**Example Commands**:
 
-- Turn 1 after trigger: Minor rockfall, navigation normal
-- Turn 2-3: Moderate rockfall, descriptions show urgency
-- Turn 4-5: Heavy rockfall, damage possible, descriptions panicked
-- Turn 6+: Severe collapse, high damage risk, passages closing
+- `look around` / `examine the room` - AI describes the magnificent treasury
+- `examine crystal` / `look at the pedestal` - Details about the crystal
+- `take crystal` / `grab the Crystal of Echoing Depths` - Win condition item!
+- `go west` - Return to chasm
 
-**Escape Route**: Crystal Treasury → Yawning Chasm → Cave Entrance → West Exit
+**Key Items**:
 
-**Available Actions** (All locations):
+- **Crystal of Echoing Depths**: Required for victory
 
-- `go [direction]` - Move toward exit
-- `run [direction]` - Move faster (may skip description)
-- `use crystal` - Crystal glows, provides light in darkness
-- Movement commands have increased urgency in narration
+**What Happens When You Take the Crystal**:
 
-**Class-Specific Advantages**:
+1. AI generates dramatic "collapse" narrative (rumbling, danger, urgency)
+2. Flag is set: `collapse_triggered = True`
+3. This is narrative flavor - no actual gameplay consequences
+4. You can now return to the entrance and exit
 
-#### Warrior:
-
-- **High health**: Can tank rockfall damage
-- **Strength**: Can smash through minor obstructions
-- **Unique**: `break rocks` - Clear blocked passages
-- **Speed**: Slower but resilient
-
-#### Wizard:
-
-- **Magic shield**: Can deflect falling rocks (1-2 uses)
-- **Telekinesis**: Can clear path without stopping
-- **Unique**: `cast shield` - Protect from damage
-- **Speed**: Normal, but protected
-
-#### Rogue:
+**Implementation Note**: The collapse is narrative-only. Originally planned as a timed escape sequence but simplified for the demo.
 
 - **High agility**: Dodge falling rocks automatically
 - **Stealth/speed**: Move through danger zones faster
@@ -249,69 +200,24 @@ Each character class (Warrior, Wizard, Rogue) has unique approaches to challenge
 4. Player goes west to exit (Turn 3 - VICTORY)
 5. System narrates escape, crystal is secured
 
-**Failure Paths**:
+# Step 5: Return and Victory
 
-- **Too slow**: Trapped at turn 7+, cave collapses, death
-- **Falls at chasm**: Takes damage, may die from fall + collapse
-- **Wrong direction**: Goes south to Collapsed Passage (dead end), trapped
-- **Hesitates**: Explores more rooms after trigger, trapped
+**Return Route**: Crystal Treasury → Yawning Chasm → Cave Entrance
 
----
+**Example Commands**:
 
-## Complete Success Scenarios
+- `go west` / `head back` - Retrace your steps
+- `cross chasm` - Cross back over (remember the rope!)
+- `exit` / `escape` / `leave the cave` - **Victory command at Cave Entrance**
 
-### Scenario A: Thorough Warrior
+**Victory Conditions** (both required):
 
-**Character**: Warrior "Throg"  
-**Playstyle**: Methodical, strength-based
+1. **Have the crystal** in your inventory
+2. **Use exit/escape command** at Cave Entrance location
 
-1. Start at Cave Entrance
-2. `look around` - Learn about environment
-3. `take rope` - Secure rope
-4. `go north` - Explore alcove
-5. `examine alcove` - Find climbing gear
-6. `take climbing gear` - Bonus equipment
-7. `go south` - Return to entrance
-8. `go east` - Enter chasm
-9. `use rope` - Cross safely with strength
-10. `go east` - Enter treasury
-11. `examine murals` - Read warning
-12. `examine crystal` - Understand prize
-13. `take crystal` - Trigger collapse
-14. `go west` - Back to chasm (Turn 1)
-15. `use rope` - Recross quickly (Turn 2)
-16. `go west` - Back to entrance (Turn 3)
-17. `go west` - EXIT, VICTORY
+**Implementation**: AdventureNarrator agent checks both conditions and triggers victory status
 
-**Result**: Perfect score, all items, no damage
-
----
-
-### Scenario B: Quick Wizard
-
-**Character**: Wizard "Mystara"  
-**Playstyle**: Fast, magic-focused
-
-1. Start at Cave Entrance
-2. `take rope` - Grab essential item
-3. `go east` - Skip optional alcove
-4. `use rope` - Cross with magic-assisted rope
-5. `go east` - Enter treasury
-6. `take crystal` - Immediate trigger
-7. `cast shield` - Protect during escape
-8. `go west` - Rush back (Turn 1)
-9. `go west` - Recross chasm (Turn 2)
-10. `go west` - Back to entrance (Turn 3)
-11. `go west` - EXIT, VICTORY
-
-**Result**: Fast completion, magic protection, efficient
-
----
-
-### Scenario C: Risky Rogue
-
-**Character**: Rogue "Shadow"  
-**Playstyle**: Agile, minimal equipment
+**Why explicit exit?**: Demonstrates intentional game design - simply being at the entrance isn't enough, you must explicitly choose to leave
 
 1. Start at Cave Entrance
 2. `go east` - Skip rope entirely (risky)
@@ -363,130 +269,194 @@ Each character class (Warrior, Wizard, Rogue) has unique approaches to challenge
 1-10. (Successful exploration and crossing) 11. `take crystal` - Trigger collapse (Turn 0) 12. `go west` - Back to chasm (Turn 1) 13. `go south` - WRONG, enters Collapsed Passage (Turn 2) 14. `look around` - Realizes mistake (Turn 3) 15. `go north` - Try to return (Turn 4) 16. **SYSTEM**: Passage collapses, blocked (Turn 5) 17. **RESULT**: Trapped in dead end, no escape 18. **GAME OVER**
 
 **Lesson**: Know the exit route before triggering trap
+Example Successful Playthrough
+
+Here's a minimal winning sequence (10 commands):
+
+```
+1. take rope
+2. go east
+3. cross chasm
+4. go east
+5. take crystal
+6. go west
+7. cross chasm
+8. go west
+9. exit
+```
+
+**Result**: VICTORY! 🏆
+
+**What the AI Agents Do**:
+
+- **IntentParser**: Classifies each command (MOVEMENT, PICKUP, EXIT, etc.)
+- **RoomDescriptor**: Generates location descriptions, validates movement
+- **InventoryManager**: Handles item pickup/drop with realistic constraints
+- **AdventureNarrator**: Orchestrates everything, generates final narrative, checks victory
 
 ---
 
-## Testing Scenarios
+## Longer Explorative Playthrough
 
-Each scenario should be tested via API with:
+For a more thorough experience (20+ commands):
 
-1. Session creation with specific character class
-2. Sequence of commands
-3. Expected responses at each step
-4. Final state verification (victory/defeat)
+```
+1. look around
+2. examine the rope on the wall
+3. take the magical rope
+4. go north
+5. look around the alcove
+6. take the explorer's journal
+7. read the journal
+8. take climbing gear
+9. go south
+10. go east
+11. examine the chasm
+12. use rope to cross
+13. go east
+14. look at the murals
+15. examine the crystal pedestal
+16. take the Crystal of Echoing Depths
+17. go west
+18. cross back over the chasm
+19. go west
+20. escape the cave
+```
 
-### Test Categories:
-
-#### A. Success Tests (9 scenarios)
-
-- Warrior: Full exploration path
-- Warrior: Minimal path
-- Warrior: With all equipment
-- Wizard: Magic-focused path
-- Wizard: Minimal path
-- Wizard: Emergency spell usage
-- Rogue: Agility path
-- Rogue: Stealth path
-- Rogue: Speed run
-
-#### B. Failure Tests (6 scenarios)
-
-- Each class: Death from chasm fall
-- Each class: Trapped by collapse timing
-- Each class: Wrong direction after trigger
-
-#### C. Edge Cases (6 scenarios)
-
-- Take crystal without examining
-- Try to go back after triggering collapse
-- Use crystal in different rooms
-- Attempt to cross chasm multiple ways
-- Backtrack to Hidden Alcove after chasm
-- Damage from rockfall but successful escape
-
-**Total Test Scenarios**: 21 automated tests
+**Result**: VICTORY with full exploration! 🏆 escape
 
 ---
 
-## Content Gaps to Fill
+## AI Agent Architecture
 
-Based on scenarios above, we need to add:
+This game demonstrates coordinated AI agents working together:
 
-### New Items:
+### **IntentParser Agent**
 
-- [ ] Climbing Gear (in Hidden Alcove)
-- [ ] Explorer's Journal (in Crystal Treasury, optional)
-- [ ] Grappling Hook (alternative for Rogue, maybe in alcove)
+- Classifies natural language into command types
+- Understands variations ("take rope" = "grab the rope" = "pick up the magical rope")
+- Routes commands to appropriate handlers
 
-### Room Enhancements:
+### **RoomDescriptor Agent**
 
-- [ ] Yawning Chasm: Add depth description, danger warnings
-- [ ] Hidden Alcove: Add climbing gear details
-- [ ] Crystal Treasury: Add murals with warnings, pedestal description
-- [ ] Collapsed Passage: Add "this is a dead end" warning
-- [ ] Cave Entrance: Add exit description to the west
+- Generates dynamic room descriptions from RAG database
+- Validates movement between rooms
+- Checks temp_flags for stateful navigation (chasm crossing)
 
-### Class-Specific Actions:
+### **InventoryManager Agent**
 
-- [ ] Warrior: `jump across`, `break rocks`
-- [ ] Wizard: `cast levitate`, `cast shield`, `cast light`
-- [ ] Rogue: `scale walls`, `dash`, `grapple`
+- Handles item pickup/drop with realistic constraints
+- Checks if items exist in current location
+- Prevents duplicate pickups
+- Maintains inventory state
 
-### Game Mechanics:
+### **AdventureNarrator Agent** (Orchestrator)
 
-- [ ] Turn counter after crystal trigger
-- [ ] Progressive collapse descriptions (environmental state)
-- [ ] Fall damage system
-- [ ] Death/game over handling
-- [ ] Victory condition detection
-- [ ] Rope state (secured vs unsecured)
-
-### Narrative Variations:
-
-- [ ] Class-specific crossing descriptions
-- [ ] Class-specific trap escape descriptions
-- [ ] Equipment-influenced descriptions
-- [ ] Damage/health status descriptions
-- [ ] Urgency levels in collapse narration
+- Coordinates all other agents
+- Handles special events (crystal collapse, victory)
+- Generates final narrative responses
+- Manages game state transitions
 
 ---
 
-## Implementation Priority
+## Technical Implementation Notes
 
-### Phase 1: Core Path (Minimal Viable)
+### State Management (Redis)
 
-1. Ensure rope works for chasm crossing
-2. Crystal trigger mechanism
-3. Basic escape route (5 turns to exit)
-4. Victory detection at west exit
-5. Failure detection at turn limit
+```python
+session = {
+    "game_id": "uuid",
+    "character_name": "Player",
+    "character_class": "Warrior",
+    "location": "cave_entrance",
+    "inventory": ["rope", "crystal_of_echoing_depths"],
+    "temp_flags": {"chasm_east_side": True},
+    "collapse_triggered": True,
+    "turns_since_collapse": 0,
+    "turn_count": 15,
+    "game_status": "victory"
+}
+```
 
-### Phase 2: Class Differentiation
+### Key Mechanics
 
-1. Class-specific crossing methods
-2. Class-specific escape abilities
-3. Stat-based success rates
+**Chasm Crossing** (`temp_flags`):
 
-### Phase 3: Full Experience
+- When crossing east: Sets `chasm_east_side: True`
+- RoomDescriptor checks this flag before allowing east/west movement
+- Crossing back: Toggles flag to `False`
 
-1. All optional items
-2. All room examination details
-3. Progressive collapse descriptions
-4. Damage and health system
+**Crystal Collapse** (narrative only):
+
+- Sets `collapse_triggered: True` when crystal is taken
+- AI generates dramatic collapse narrative
+- No actual gameplay consequences (originally planned as timed escape)
+
+**Victory Detection**:
+
+- Requires: `has_crystal` AND `at_cave_entrance` AND `exit_command`
+- Checked by AdventureNarrator on each command
+- Sets `game_status: "victory"`
+
+### RAG Database (ChromaDB)
+
+- Room descriptions stored as embeddings
+- Items stored with metadata
+- AI agents query for contextual information
+- Enables rich, dynamic narrative generation
 
 ---
 
-## Success Metrics
+## Testing
 
-A complete playthrough should have:
+**Test Suite**: 85 tests (81 passing, 4 skipped)
 
-- ✅ Clear goal understanding (get crystal, escape)
-- ✅ Fair warning of dangers (murals, journal)
-- ✅ Multiple valid approaches (class-based)
-- ✅ Appropriate time pressure (collapse sequence)
-- ✅ Satisfying victory (narrative closure)
-- ✅ Learnable failure (can retry with knowledge)
+**Test Coverage**:
 
-**Target completion time**: 10-20 commands for success path  
-**Target failure rate**: 30-40% on first attempt (learning curve)  
-**Target retry success**: 80%+ on second attempt (applied knowledge)
+- Unit tests for mechanics, agents, and utils
+- Integration tests for full game flow
+- Scenario tests for refactored mechanics
+- WebSocket streaming tests
+- Save/load persistence tests
+
+**Run Tests**:
+
+```bash
+cd backend
+bash scripts/test-integration.sh  # Full suite
+bash scripts/test-unit.sh         # Unit tests only
+```
+
+---
+
+## What This Demo Shows
+
+✅ **Natural Language Understanding**: AI parses varied command phrasings  
+✅ **Agent Coordination**: Multiple AI agents work together seamlessly  
+✅ **Stateful Navigation**: temp_flags enable complex movement puzzles  
+✅ **Dynamic Content**: AI generates contextual room descriptions  
+✅ **Tool Use**: Agents invoke tools (RAG queries, item checks) effectively  
+✅ **Game Logic**: Victory conditions, state management, inventory system
+
+## What This Demo Doesn't Include
+
+❌ **Combat System**: No enemies, no damage  
+❌ **Character Stats**: Classes are cosmetic only  
+❌ **Time Pressure**: No turn limits (accessibility choice)  
+❌ **Complex Puzzles**: Intentionally simple for demonstration  
+❌ **Class Abilities**: No special powers (would overcomplicate)
+
+---
+
+## Future Enhancements (Not Implemented)
+
+These were considered but kept out of scope for the demo:
+
+- Health/damage system
+- Turn counter with time limits
+- Class-specific abilities and stat checks
+- Progressive environmental damage
+- Multiple endings based on choices
+- Save file branching narratives
+
+The current implementation prioritizes **clarity and demonstration value** over game complexity.

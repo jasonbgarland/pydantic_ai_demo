@@ -1,54 +1,48 @@
 """Integration tests for save/load game endpoints."""
 import os
 import unittest
-from httpx import AsyncClient, ASGITransport
+import requests
 
-# Set environment variables before importing app
-# Use Docker service names when running in container, localhost otherwise
-os.environ['REDIS_URL'] = os.getenv('REDIS_URL', 'redis://redis:6379/0')
-os.environ['DATABASE_URL'] = os.getenv('DATABASE_URL', 'postgresql://adventure:development_password@postgres:5432/adventure_engine')
-
-from app.main import app
+# Use backend:8000 when running in Docker, localhost:8001 when running locally
+BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8001')
+TIMEOUT = 10
 
 
 @unittest.skipUnless(os.getenv('RUN_INTEGRATION_TESTS'), 'Integration tests disabled')
-class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
+class TestSaveLoadIntegration(unittest.TestCase):
     """Integration tests for PostgreSQL save/load endpoints."""
 
-    async def asyncSetUp(self):
+    def setUp(self):
         """Set up test client and create a test game session."""
-        self.transport = ASGITransport(app=app)
-        self.client = AsyncClient(transport=self.transport, base_url="http://test")
-
         # Start a test game session (creates character internally)
-        start_game_response = await self.client.post(
-            "/game/start",
-            json={"name": "TestHero", "character_class": "warrior"}
+        start_game_response = requests.post(
+            f"{BASE_URL}/game/start",
+            json={"name": "TestHero", "character_class": "warrior"},
+            timeout=TIMEOUT
         )
         self.assertEqual(start_game_response.status_code, 200)
         self.test_session = start_game_response.json()
         self.game_id = self.test_session["game_id"]
 
         # Execute a few commands to generate game state
-        await self.client.post(
-            f"/game/{self.game_id}/command",
-            json={"command": "look around"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/command",
+            json={"command": "look around"},
+            timeout=TIMEOUT
         )
-        await self.client.post(
-            f"/game/{self.game_id}/command",
-            json={"command": "examine cave"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/command",
+            json={"command": "examine cave"},
+            timeout=TIMEOUT
         )
 
-    async def asyncTearDown(self):
-        """Clean up test client."""
-        await self.client.aclose()
-
-    async def test_save_game_creates_database_record(self):
+    def test_save_game_creates_database_record(self):
         """Test that saving a game creates a PostgreSQL record."""
         # Save the game
-        save_response = await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "Test Save"}
+        save_response = requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "Test Save"},
+            timeout=TIMEOUT
         )
 
         self.assertEqual(save_response.status_code, 200)
@@ -63,11 +57,12 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(save_data["game_id"], self.game_id)
         self.assertEqual(save_data["session_name"], "Test Save")
 
-    async def test_save_game_without_session_name(self):
+    def test_save_game_without_session_name(self):
         """Test saving game with auto-generated session name."""
-        save_response = await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={}
+        save_response = requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={},
+            timeout=TIMEOUT
         )
 
         self.assertEqual(save_response.status_code, 200)
@@ -76,13 +71,14 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         # Should have auto-generated name with timestamp
         self.assertIn("Adventure -", save_data["session_name"])
 
-    async def test_save_nonexistent_game_returns_error(self):
+    def test_save_nonexistent_game_returns_error(self):
         """Test saving a non-existent game returns error."""
         fake_game_id = "fake-game-id-999"
 
-        save_response = await self.client.post(
-            f"/game/{fake_game_id}/save",
-            json={"session_name": "Should Fail"}
+        save_response = requests.post(
+            f"{BASE_URL}/game/{fake_game_id}/save",
+            json={"session_name": "Should Fail"},
+            timeout=TIMEOUT
         )
 
         self.assertEqual(save_response.status_code, 200)
@@ -91,16 +87,17 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertIn("error", save_data)
         self.assertEqual(save_data["error"], "session_not_found")
 
-    async def test_list_saved_games(self):
+    def test_list_saved_games(self):
         """Test listing all saved games."""
         # Save the current game
-        await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "List Test Save"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "List Test Save"},
+            timeout=TIMEOUT
         )
 
         # List saves
-        list_response = await self.client.get("/game/saves")
+        list_response = requests.get(f"{BASE_URL}/game/saves", timeout=TIMEOUT)
 
         self.assertEqual(list_response.status_code, 200)
         list_data = list_response.json()
@@ -121,17 +118,18 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(our_save["character_name"], "TestHero")
         self.assertEqual(our_save["character_class"], "warrior")
 
-    async def test_load_saved_game(self):
+    def test_load_saved_game(self):
         """Test loading a saved game from PostgreSQL into Redis."""
         # Save the game first
-        save_response = await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "Load Test"}
+        save_response = requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "Load Test"},
+            timeout=TIMEOUT
         )
         self.assertEqual(save_response.status_code, 200)
 
         # Load the game
-        load_response = await self.client.post(f"/game/{self.game_id}/load")
+        load_response = requests.post(f"{BASE_URL}/game/{self.game_id}/load", timeout=TIMEOUT)
 
         self.assertEqual(load_response.status_code, 200)
         load_data = load_response.json()
@@ -148,11 +146,11 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertIn("character", session)
         self.assertEqual(session["character"]["name"], "TestHero")
 
-    async def test_load_nonexistent_save_returns_error(self):
+    def test_load_nonexistent_save_returns_error(self):
         """Test loading a non-existent save returns error."""
         fake_game_id = "nonexistent-save-999"
 
-        load_response = await self.client.post(f"/game/{fake_game_id}/load")
+        load_response = requests.post(f"{BASE_URL}/game/{fake_game_id}/load", timeout=TIMEOUT)
 
         self.assertEqual(load_response.status_code, 200)
         load_data = load_response.json()
@@ -160,16 +158,17 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertIn("error", load_data)
         self.assertEqual(load_data["error"], "save_not_found")
 
-    async def test_delete_saved_game(self):
+    def test_delete_saved_game(self):
         """Test deleting (soft delete) a saved game."""
         # Save the game first
-        await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "Delete Test"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "Delete Test"},
+            timeout=TIMEOUT
         )
 
         # Delete the save
-        delete_response = await self.client.delete(f"/game/{self.game_id}/save")
+        delete_response = requests.delete(f"{BASE_URL}/game/{self.game_id}/save", timeout=TIMEOUT)
 
         self.assertEqual(delete_response.status_code, 200)
         delete_data = delete_response.json()
@@ -178,7 +177,7 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(delete_data["game_id"], self.game_id)
 
         # Verify it's no longer in the active saves list
-        list_response = await self.client.get("/game/saves")
+        list_response = requests.get(f"{BASE_URL}/game/saves", timeout=TIMEOUT)
         list_data = list_response.json()
 
         deleted_save = next(
@@ -187,20 +186,21 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNone(deleted_save)  # Should not appear in active saves
 
-    async def test_save_preserves_game_state(self):
+    def test_save_preserves_game_state(self):
         """Test that saving and loading preserves complete game state."""
         # Get current session state
-        state_response = await self.client.get(f"/game/{self.game_id}/state")
+        state_response = requests.get(f"{BASE_URL}/game/{self.game_id}/state", timeout=TIMEOUT)
         original_state = state_response.json()
 
         # Save the game
-        await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "State Preservation Test"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "State Preservation Test"},
+            timeout=TIMEOUT
         )
 
         # Load the game
-        load_response = await self.client.post(f"/game/{self.game_id}/load")
+        load_response = requests.post(f"{BASE_URL}/game/{self.game_id}/load", timeout=TIMEOUT)
         loaded_session = load_response.json()["session"]
 
         # Verify key state elements are preserved
@@ -218,22 +218,24 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
             original_state["turn_count"]
         )
 
-    async def test_save_tracks_discoveries(self):
+    def test_save_tracks_discoveries(self):
         """Test that saving creates discovery records for visited rooms."""
         # Execute movement commands to discover rooms
-        await self.client.post(
-            f"/game/{self.game_id}/command",
-            json={"command": "north"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/command",
+            json={"command": "north"},
+            timeout=TIMEOUT
         )
 
         # Save the game
-        await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "Discovery Test"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "Discovery Test"},
+            timeout=TIMEOUT
         )
 
         # Load and verify discoveries are tracked
-        load_response = await self.client.post(f"/game/{self.game_id}/load")
+        load_response = requests.post(f"{BASE_URL}/game/{self.game_id}/load", timeout=TIMEOUT)
         loaded_session = load_response.json()["session"]
 
         # Should have discovered at least the starting room
@@ -241,30 +243,33 @@ class TestSaveLoadIntegration(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(loaded_session["discovered"], list)
         self.assertGreater(len(loaded_session["discovered"]), 0)
 
-    async def test_update_existing_save(self):
+    def test_update_existing_save(self):
         """Test that saving again updates the existing save."""
         # Save with initial name
-        save1_response = await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "Version 1"}
+        save1_response = requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "Version 1"},
+            timeout=TIMEOUT
         )
         self.assertEqual(save1_response.status_code, 200)
 
         # Make more progress
-        await self.client.post(
-            f"/game/{self.game_id}/command",
-            json={"command": "look around"}
+        requests.post(
+            f"{BASE_URL}/game/{self.game_id}/command",
+            json={"command": "look around"},
+            timeout=TIMEOUT
         )
 
         # Save again with different name
-        save2_response = await self.client.post(
-            f"/game/{self.game_id}/save",
-            json={"session_name": "Version 2"}
+        save2_response = requests.post(
+            f"{BASE_URL}/game/{self.game_id}/save",
+            json={"session_name": "Version 2"},
+            timeout=TIMEOUT
         )
         self.assertEqual(save2_response.status_code, 200)
 
         # List saves - should only have one entry for this game_id
-        list_response = await self.client.get("/game/saves")
+        list_response = requests.get(f"{BASE_URL}/game/saves", timeout=TIMEOUT)
         list_data = list_response.json()
 
         matching_saves = [

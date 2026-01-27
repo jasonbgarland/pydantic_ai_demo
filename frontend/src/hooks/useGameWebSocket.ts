@@ -183,28 +183,33 @@ export function useGameWebSocket() {
       wsRef.current = ws;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gameId]
+    [gameId],
   );
 
   /**
    * Initialize a new game session
    */
   const initializeGame = useCallback(
-    async (character: { name: string; character_class: string }) => {
+    async (character: { name: string }) => {
       setIsLoading(true);
       setError(null);
 
       try {
         // Create session via REST API
-        const { game_id, session: newSession } = await startGame(character);
+        const response = await startGame(character);
+        const { game_id, session: newSession, intro_narrative } = response;
         setGameId(game_id);
         setSession(newSession);
 
-        // Add initial narrative
+        // Add introduction narrative if provided, otherwise use default
+        const welcomeMessage =
+          intro_narrative ||
+          `Welcome, ${character.name}! You stand at the Cave Entrance, ready to begin your adventure.`;
+
         setNarrative([
           {
             turn: 0,
-            response: `Welcome, ${character.name}! You stand at the Cave Entrance, ready to begin your adventure.`,
+            response: welcomeMessage,
           },
         ]);
 
@@ -223,7 +228,7 @@ export function useGameWebSocket() {
     },
     // connectWebSocket is defined outside with its own dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [],
   );
 
   /**
@@ -248,11 +253,11 @@ export function useGameWebSocket() {
         JSON.stringify({
           command,
           parameters: null,
-        })
+        }),
       );
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session]
+    [session],
   );
 
   /**
@@ -274,7 +279,7 @@ export function useGameWebSocket() {
       // Connect WebSocket for real-time updates
       connectWebSocket(id);
     },
-    [connectWebSocket]
+    [connectWebSocket],
   );
 
   /**

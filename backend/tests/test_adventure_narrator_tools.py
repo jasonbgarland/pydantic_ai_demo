@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 from app.agents.adventure_narrator import AdventureNarrator, CommandType, ParsedCommand
 from app.agents.room_descriptor import RoomDescriptor
 from app.agents.inventory_manager import InventoryManager
-from app.agents.entity_manager import EntityManager
 
 
 class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
@@ -14,12 +13,10 @@ class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
         """Set up test fixtures with mock agents."""
         self.mock_room_descriptor = MagicMock(spec=RoomDescriptor)
         self.mock_inventory_manager = MagicMock(spec=InventoryManager)
-        self.mock_entity_manager = MagicMock(spec=EntityManager)
 
         self.narrator = AdventureNarrator(
             room_descriptor=self.mock_room_descriptor,
-            inventory_manager=self.mock_inventory_manager,
-            entity_manager=self.mock_entity_manager
+            inventory_manager=self.mock_inventory_manager
         )
 
         self.sample_game_state = {
@@ -53,19 +50,6 @@ class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
         # Verify
         self.assertEqual(result, expected_result)
         self.mock_inventory_manager.pickup_item.assert_called_once_with('sword', [])
-
-    async def test_call_agents_tool_entity_manager(self):
-        """Test call_agents tool with entity_manager."""
-        # Setup mock return value
-        expected_result = {'success': True, 'message': 'You talk to the wizard'}
-        self.mock_entity_manager.talk_to_entity.return_value = expected_result
-
-        # Call agent through tool
-        result = await self.narrator.call_agents('entity_manager', 'talk_to_entity', 'wizard')
-
-        # Verify
-        self.assertEqual(result, expected_result)
-        self.mock_entity_manager.talk_to_entity.assert_called_once_with('wizard')
 
     async def test_call_agents_tool_unknown_agent(self):
         """Test call_agents tool with unknown agent."""
@@ -104,9 +88,9 @@ class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.game_state_updates["location"], "corridor_north")
         self.assertTrue(response.success)
 
-        # Verify agent was called
+        # Verify agent was called with game_state
         self.mock_room_descriptor.handle_movement.assert_called_once_with(
-            "dungeon_entrance", "north"
+            "dungeon_entrance", "north", game_state=self.sample_game_state
         )
 
     async def test_movement_with_blocked_path(self):
@@ -128,7 +112,7 @@ class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
 
         # Verify blocked response
         self.assertEqual(response.agent, "RoomDescriptor")
-        self.assertIn("cannot go south", response.narrative)
+        self.assertIn("blocked", response.narrative.lower())
         self.assertFalse(response.success)
         self.assertTrue(response.metadata.get('blocked'))
 
@@ -185,33 +169,6 @@ class TestAdventureNarratorTools(unittest.IsolatedAsyncioTestCase):
         self.mock_inventory_manager.pickup_item.assert_called_once_with(
             'golden_sword', ['rusty_key', 'torch'], 'dungeon_entrance'
         )
-
-    async def test_talk_with_entity_manager_agent(self):
-        """Test talk command integration with entity_manager agent."""
-        # Setup mock
-        self.mock_entity_manager.talk_to_entity = AsyncMock(return_value={
-            'success': True,
-            'message': 'You speak with the wise old wizard.',
-            'dialogue': 'The wizard nods knowingly.',
-            'state_changes': {'wizard_talked': True}
-        })
-
-        command = ParsedCommand(
-            command_type=CommandType.TALK,
-            action="talk",
-            target="wizard"
-        )
-
-        response = await self.narrator.handle_command(command, self.sample_game_state)
-
-        # Verify response from agent
-        self.assertEqual(response.agent, "EntityManager")
-        self.assertIn("wise old wizard", response.narrative)
-        self.assertTrue(response.success)
-        self.assertEqual(response.game_state_updates['wizard_talked'], True)
-
-        # Verify agent was called
-        self.mock_entity_manager.talk_to_entity.assert_called_once_with('wizard')
 
     async def test_agent_error_handling(self):
         """Test error handling when agent calls fail."""

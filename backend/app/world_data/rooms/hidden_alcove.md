@@ -61,23 +61,23 @@ All the equipment here is meant to be used:
 ### For Warriors
 
 **Priority items**: Magical rope, climbing gear, healing potion
-The rope and gear let you use your **strength** effectively. The journal explains how to muscle across the chasm safely. Your powerful build can handle any weight.
+Pick up the rope or gear, and you'll be able to cross the chasm safely with your strength.
 
-**What the journal says about you**: _"Brute strength works well here - anchor the magical rope firmly, pull yourself across hand-over-hand."_
+**What the journal says about you**: _"Strong and steady wins the race. Get the rope or climbing gear, then just head east across the chasm."_
 
 ### For Wizards
 
 **Priority items**: Magical rope, explorer's journal, healing potion
-The rope responds beautifully to **magical enhancement**. The journal contains crucial information about the crystal's properties and the trap mechanism. Your intellect will help you understand and prepare.
+The magical rope resonates with your power. The journal contains crucial information about the crystal's properties.
 
-**What the journal says about you**: _"The magical rope responds beautifully to enchantment. A simple levitation or balance spell combined with the rope makes crossing almost elegant."_
+**What the journal says about you**: _"The magical rope responds to magical affinity. Carry it with you and crossing will be simple."_
 
 ### For Rogues
 
 **Priority items**: Grappling hook, climbing gear, explorer's journal
-Your natural **agility** means you have the most options. The journal notes that nimble climbers can use wall handholds. The grappling hook is practically made for someone with your skills.
+Your natural **agility** gives you options! You can use equipment like the others, OR use your **dash** ability to leap across.
 
-**What the journal says about you**: _"Natural climbers will spot the handholds in the chasm walls. The climbing gear helps, but your agility is the real advantage. Quick and light is the way."_
+**What the journal says about you**: _"Quick and agile rogues can dash across. Or take the grappling hook or climbing gear for a more cautious approach."_
 
 ## Preparation Pays Off
 

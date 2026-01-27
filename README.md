@@ -1,6 +1,6 @@
 # Multi-Agent AI Text Adventure
 
-> A production-ready demonstration of agentic AI patterns using PydanticAI
+> A demonstration of agentic AI patterns using PydanticAI
 
 ![Multi-Agent AI Text Adventure](docs/screenshot.png)
 
@@ -54,7 +54,6 @@ graph TB
     subgraph Specialists["⚙️ Specialist Pattern"]
         Room[RoomDescriptor<br/>Environment Expert]
         Inventory[InventoryManager<br/>Items Expert]
-        Entity[EntityManager<br/>NPC/Creature Expert]
     end
 
     subgraph RAG["📚 RAG Pattern"]
@@ -74,13 +73,10 @@ graph TB
     IntentParser -->|ParsedCommand<br/>{type: pickup, target: crystal}| Narrator
     Narrator -->|Delegates| Room
     Narrator -->|Delegates| Inventory
-    Narrator -->|Delegates| Entity
     Room -->|query_world_lore| Tools
     Inventory -->|examine_item| Tools
-    Entity -->|interact_with_entity| Tools
     Tools -->|Context Retrieval| Room
     Tools -->|Context Retrieval| Inventory
-    Tools -->|Context Retrieval| Entity
     Narrator -->|Save/Load State| Redis
     Narrator -->|Persist Discoveries| Postgres
     Narrator -->|Composed Response| UI
@@ -109,24 +105,22 @@ graph TB
 
 ### Agents & Responsibilities
 
-| Agent                 | Purpose                                                               | Key Tools                                    | Pattern          |
-| --------------------- | --------------------------------------------------------------------- | -------------------------------------------- | ---------------- |
-| **IntentParser**      | Classifies natural language commands into structured intents          | N/A (pure AI classification)                 | Classification   |
-| **AdventureNarrator** | Orchestrates game flow, delegates to specialists, composes narratives | `parse_command`, agent delegation            | Orchestration    |
-| **RoomDescriptor**    | Generates rich environmental descriptions using RAG                   | `query_world_lore`, `get_room_connections`   | Specialist + RAG |
-| **InventoryManager**  | Manages item interactions (pickup, drop, examine, use)                | `update_inventory`, `examine_item`           | Specialist       |
-| **EntityManager**     | Handles NPCs, creatures, and interactive elements                     | `interact_with_entity`, `check_entity_state` | Specialist       |
+| Agent                 | Purpose                                                               | Key Tools                                  | Pattern          |
+| --------------------- | --------------------------------------------------------------------- | ------------------------------------------ | ---------------- |
+| **IntentParser**      | Classifies natural language commands into structured intents          | N/A (pure AI classification)               | Classification   |
+| **AdventureNarrator** | Orchestrates game flow, delegates to specialists, composes narratives | `parse_command`, agent delegation          | Orchestration    |
+| **RoomDescriptor**    | Generates rich environmental descriptions using RAG                   | `query_world_lore`, `get_room_connections` | Specialist + RAG |
+| **InventoryManager**  | Manages item interactions (pickup, drop, examine, use)                | `update_inventory`, `examine_item`         | Specialist       |
 
 ### Tools Available to Agents
 
 | Tool                     | Purpose                                       | Used By                           |
 | ------------------------ | --------------------------------------------- | --------------------------------- |
-| **query_world_lore**     | Searches ChromaDB for relevant world content  | RoomDescriptor, EntityManager     |
+| **query_world_lore**     | Searches ChromaDB for relevant world content  | RoomDescriptor                    |
 | **get_room_connections** | Returns available exits from current location | RoomDescriptor, AdventureNarrator |
 | **update_inventory**     | Add/remove items from player inventory        | InventoryManager                  |
 | **examine_item**         | Get detailed item descriptions                | InventoryManager                  |
 | **check_ability**        | Validate if player can use class ability      | AdventureNarrator                 |
-| **interact_with_entity** | Handle NPC/creature interactions              | EntityManager                     |
 
 ## 🚀 Quick Start
 

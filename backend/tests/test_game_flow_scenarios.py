@@ -5,16 +5,18 @@ Tests all success and failure scenarios defined in GAME_FLOW_NARRATIVE.md
 Uses API calls to verify game mechanics work as intended for showcase.
 """
 
+import os
 import unittest
 from typing import Dict
 
 import requests
 
 
-BASE_URL = "http://localhost:8001"
+BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8001")
 TEST_TIMEOUT = 10
 
 
+@unittest.skipUnless(os.getenv('RUN_INTEGRATION_TESTS'), 'Integration tests disabled')
 class GameFlowTestCase(unittest.TestCase):
     """Base class for game flow tests with helper methods."""
 
@@ -102,9 +104,9 @@ class GameFlowTestCase(unittest.TestCase):
         )
 
     def assertGameStatus(self, expected_status: str):
-        """Assert game status (active, victory, defeat)."""
+        """Assert game status (in_progress, victory, defeat)."""
         state = self.get_session_state()
-        actual_status = state.get("status", "").lower()
+        actual_status = state.get("game_status", "").lower()
         self.assertEqual(
             actual_status,
             expected_status.lower(),
@@ -191,15 +193,15 @@ class SuccessScenarioTests(GameFlowTestCase):
         response = self.send_command("go west")
         self.assertCurrentLocation("cave_entrance")
 
-        # EXIT west to victory!
-        response = self.send_command("go west")
+        # Exit the cave to victory!
+        response = self.send_command("exit")
         self.assertGameStatus("victory")
         self.assertInNarrative("victory", response)  # Victory message appears
 
     def test_scenario_b_quick_wizard(self):
         """
-        Scenario B: Quick Wizard
-        Fast path with magic-focused approach.
+        Scenario B: Quick Path
+        Fast approach skipping optional content.
         """
         self.create_session("Wizard", "Mystara")
 
@@ -211,9 +213,8 @@ class SuccessScenarioTests(GameFlowTestCase):
         self.send_command("go east")
         self.assertCurrentLocation("yawning_chasm")
 
-        # 3. Cross with magic-enhanced rope
+        # 3. Cross with rope
         response = self.send_command("use rope")
-        # Wizard should have easier time with magical rope
 
         # 4. Enter treasury
         self.send_command("go east")
@@ -223,22 +224,21 @@ class SuccessScenarioTests(GameFlowTestCase):
         self.send_command("take crystal")
         self.assertHasItem("crystal_of_echoing_depths")
 
-        # 6. Cast shield during escape
+        # 6. Try using ability (cosmetic)
         response = self.send_command("cast shield")
-        # Wizard-specific protective magic
 
         # 7-10. Rush back
         self.send_command("go west")  # To chasm
         self.send_command("go west")  # Recross chasm
         self.send_command("go west")  # To entrance
-        self.send_command("go west")  # EXIT!
+        self.send_command("escape")  # Exit the cave!
 
         self.assertGameStatus("victory")
 
     def test_scenario_c_risky_rogue(self):
         """
-        Scenario C: Risky Rogue
-        Minimal equipment, maximum agility.
+        Scenario C: Alternative Approach
+        Tests different play style.
         """
         self.create_session("Rogue", "Shadow")
 
@@ -246,9 +246,10 @@ class SuccessScenarioTests(GameFlowTestCase):
         self.send_command("go east")
         self.assertCurrentLocation("yawning_chasm")
 
-        # 2. Use agility to scale walls
+        # 2. Try alternative crossing method
+        self.send_command("scale walls")
         response = self.send_command("scale walls")
-        # Rogue should succeed with agility check
+        # Attempt alternative approach
 
         # 3. Enter treasury
         self.send_command("go east")
@@ -267,7 +268,7 @@ class SuccessScenarioTests(GameFlowTestCase):
         self.send_command("go west")  # To chasm
         self.send_command("scale walls")  # Recross
         self.send_command("go west")  # To entrance
-        self.send_command("go west")  # EXIT!
+        self.send_command("exit")  # Leave the cave!
 
         self.assertGameStatus("victory")
 
@@ -530,41 +531,154 @@ class EdgeCaseTests(GameFlowTestCase):
         self.assertGameStatus("victory")
 
 
-class ClassDifferentiationTests(GameFlowTestCase):
-    """Tests that each class has unique gameplay experiences."""
+class ClassFlavorTests(GameFlowTestCase):
+    """Tests that classes work (cosmetic differences only)."""
 
-    def test_warrior_strength_advantages(self):
-        """Warrior should have strength-based advantages."""
+    def test_warrior_class_works(self):
+        """Warrior class selection works (cosmetic only)."""
         self.create_session("Warrior", "Strong")
 
-        # Warrior-specific actions should work
+        # Standard gameplay works with Warrior
         self.send_command("take magical rope")
         self.send_command("go east")
 
-        # Strength-based crossing
+        # Cross chasm with rope
         response = self.send_command("use rope")
-        # Narrative should mention strength/muscles/power
+        # Narrative may include flavor text
 
-    def test_wizard_magic_advantages(self):
-        """Wizard should have magic-based advantages."""
+    def test_wizard_class_works(self):
+        """Wizard class selection works (cosmetic only)."""
         self.create_session("Wizard", "Arcane")
 
         self.send_command("take magical rope")
         self.send_command("go east")
 
-        # Magic-enhanced crossing
+        # Cross chasm with rope
         response = self.send_command("use rope")
-        # Narrative should mention magic/spells/enchantment
+        # Narrative may include flavor text
 
-    def test_rogue_agility_advantages(self):
-        """Rogue should have agility-based advantages."""
+    def test_rogue_class_works(self):
+        """Rogue class selection works (cosmetic only)."""
         self.create_session("Rogue", "Nimble")
 
         self.send_command("go east")
 
-        # Agility-based crossing (wall climbing)
+        # Try alternative command (may or may not work)
         response = self.send_command("scale walls")
-        # Narrative should mention agility/grace/nimble
+        # Narrative responds to command attempt
+
+
+class RefactoredMechanicsTests(GameFlowTestCase):
+    """Tests for refactored game mechanics after code improvements."""
+
+    def test_chasm_crossing_temp_flags_persistence(self):
+        """Test that chasm crossing temp_flags persist between commands."""
+        self.create_session("Adventurer", "FlagTester")
+        
+        # Take rope first
+        self.send_command("take rope")
+        
+        # Navigate to chasm
+        self.send_command("go east")
+        self.assertCurrentLocation("yawning_chasm")
+        
+        # Cross the chasm
+        self.send_command("cross chasm")
+        
+        # Verify we can move east (chasm_east_side flag should be set)
+        response = self.send_command("go east")
+        self.assertCurrentLocation("crystal_treasury")
+        
+        # Go back to chasm
+        self.send_command("go west")
+        self.assertCurrentLocation("yawning_chasm")
+        
+        # Cross back (should toggle flag)
+        self.send_command("cross chasm")
+        
+        # Should be able to go west now
+        response = self.send_command("go west")
+        self.assertCurrentLocation("cave_entrance")
+
+    def test_crystal_take_triggers_collapse(self):
+        """Test that taking crystal triggers collapse immediately."""
+        self.create_session("Adventurer", "CollapseTester")
+        
+        # Navigate to treasury
+        self.send_command("take rope")
+        self.send_command("go east")
+        self.send_command("cross chasm")
+        self.send_command("go east")
+        
+        # Take crystal - should trigger collapse
+        response = self.send_command("take crystal")
+        self.assertHasItem("crystal_of_echoing_depths")
+        
+        # Response should mention collapse/rumbling/danger
+        narrative = response.get("response", "").lower()
+        collapse_mentioned = any(word in narrative for word in 
+                                ["collapse", "rumble", "shake", "crumble", "danger"])
+        self.assertTrue(collapse_mentioned, 
+                       f"Collapse should be mentioned in narrative: {narrative}")
+
+    def test_exit_command_triggers_victory(self):
+        """Test that explicit exit/escape command is required for victory."""
+        self.create_session("Adventurer", "ExitTester")
+        
+        # Complete the game
+        self.send_command("take rope")
+        self.send_command("go east")
+        self.send_command("cross chasm")
+        self.send_command("go east")
+        self.send_command("take crystal")
+        
+        # Return to entrance
+        self.send_command("go west")
+        self.send_command("cross chasm")
+        self.send_command("go west")
+        self.assertCurrentLocation("cave_entrance")
+        
+        # Should NOT be victory yet - need explicit exit command
+        state = self.get_session_state()
+        self.assertNotEqual(state.get("game_status"), "victory")
+        
+        # Now exit explicitly
+        response = self.send_command("exit")
+        self.assertGameStatus("victory")
+        self.assertInNarrative("victory", response)
+
+    def test_escape_command_also_triggers_victory(self):
+        """Test that 'escape' is an alternative to 'exit' for victory."""
+        self.create_session("Adventurer", "EscapeTester")
+        
+        # Complete the game
+        self.send_command("take rope")
+        self.send_command("go east")
+        self.send_command("cross chasm")
+        self.send_command("go east")
+        self.send_command("take crystal")
+        self.send_command("go west")
+        self.send_command("cross chasm")
+        self.send_command("go west")
+        
+        # Use 'escape' instead of 'exit'
+        response = self.send_command("escape")
+        self.assertGameStatus("victory")
+        self.assertInNarrative("victory", response)
+
+    def test_victory_requires_crystal_and_exit(self):
+        """Test that victory requires both crystal AND exit command."""
+        self.create_session("Adventurer", "RequirementTester")
+        
+        # Try to exit without crystal
+        self.assertCurrentLocation("cave_entrance")
+        response = self.send_command("exit")
+        
+        # Should NOT trigger victory without crystal
+        state = self.get_session_state()
+        game_status = state.get("game_status", "in_progress")
+        self.assertNotEqual(game_status, "victory", 
+                           "Should not win without crystal")
 
 
 if __name__ == "__main__":

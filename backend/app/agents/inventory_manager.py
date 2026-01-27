@@ -170,26 +170,54 @@ class InventoryManager:
 
             self.context.room_items = {current_location: available_items}
 
+        # CRITICAL: Check if item is already in inventory BEFORE calling AI
+        # This prevents duplicate pickups
+        check_name = item_match if item_match else item_name
+        if check_name in current_inventory:
+            logger.info("DUPLICATE CHECK: %s already in inventory", check_name)
+            return {
+                "success": False,
+                "message": f"You already have the {display_item_name(check_name)}.",
+                "inventory_update": current_inventory
+            }
+
+        # Special check: crystal must be claimed before taking
+        # This is passed via context/game state, but we can check here too
+        if 'crystal' in check_name.lower() and current_location == 'crystal_treasury':
+            # We need access to temp_flags to check if crystal_claimed is True
+            # This will be checked by returning a specific message
+            # The actual logic should be handled in adventure_narrator, but add safety check
+            logger.info("CRYSTAL PICKUP ATTEMPT: Requires claim first")
+            # Let it proceed - adventure_narrator handles the claim mechanic
+
         if PYDANTIC_AI_AVAILABLE and INVENTORY_AGENT:
             try:
                 logger.info(
-                    "CALLING AI AGENT with context: room_items=%s",
-                    self.context.room_items
+                    "CALLING AI AGENT with context: room_items=%s, current_inventory=%s",
+                    self.context.room_items, current_inventory
                 )
                 result = await INVENTORY_AGENT.run(
                     f"Player wants to pick up: {item_name} from "
-                    f"{current_location}. Check if the item exists in "
-                    f"the location before allowing pickup.",
+                    f"{current_location}. The item is NOT in their inventory yet. "
+                    f"Check if the item exists in the location before allowing pickup.",
                     deps=self.context
                 )
                 logger.info(
-                    "AI AGENT RESULT: success=%s, message=%s",
-                    result.output.success, result.output.message
+                    "AI AGENT RESULT: success=%s, message=%s, inventory_update=%s",
+                    result.output.success, result.output.message, result.output.inventory_update
                 )
+
+                # CRITICAL FIX: Don't trust AI's inventory_update - construct it ourselves
+                # to ensure we preserve existing inventory items
+                if result.output.success:
+                    new_inventory = current_inventory + [check_name]
+                else:
+                    new_inventory = current_inventory
+
                 return {
                     "success": result.output.success,
                     "message": result.output.message,
-                    "inventory_update": result.output.inventory_update
+                    "inventory_update": new_inventory
                 }
             except Exception as e:
                 # Fallback if AI call fails
@@ -197,15 +225,6 @@ class InventoryManager:
 
         # Fallback implementation - validate manually if AI not available
         logger.info("USING FALLBACK VALIDATION")
-
-        # Check if item is already in inventory (use matched canonical name)
-        check_name = item_match if item_match else item_name
-        if check_name in current_inventory:
-            return {
-                "success": False,
-                "message": f"You already have the {display_item_name(check_name)}.",
-                "inventory_update": current_inventory
-            }
 
         new_inventory = current_inventory + [check_name]
         return {
@@ -251,21 +270,36 @@ class InventoryManager:
         """Handle using an item."""
         self.context.current_inventory = current_inventory.copy()
 
-        # Normalize the item name to handle variations and extra text
+        # Normalize the item name to handle variations
         normalized_input = normalize_item_name(item_name)
-        
+
+        # Item aliases - same as in pickup_item
+        item_aliases = {
+            'potion': ['potion', 'healing_potion'],
+            'health_potion': ['healing_potion'],
+            'rope': ['rope', 'magical_rope'],
+            'gear': ['gear', 'climbing_gear'],
+            'journal': ['journal', 'explorer_journal'],
+            'crystal': ['crystal', 'crystal_of_echoing_depths'],
+            'pack': ['pack', 'leather_pack'],
+            'backpack': ['backpack', 'leather_pack'],
+        }
+
+        # Build list of names to check
+        names_to_check = [normalized_input]
+        if normalized_input in item_aliases:
+            names_to_check.extend(item_aliases[normalized_input])
+
         # Find the actual item in inventory that matches
         matched_item = None
-        for inv_item in current_inventory:
-            if normalize_item_name(inv_item) == normalized_input:
-                matched_item = inv_item
+        for candidate_name in names_to_check:
+            for inv_item in current_inventory:
+                if normalize_item_name(inv_item) == candidate_name:
+                    matched_item = inv_item
+                    break
+            if matched_item:
                 break
-            # Also check if the normalized input contains the item name
-            # This handles "use grappling hook to cross" -> finds "grappling_hook"
-            if normalize_item_name(inv_item) in normalized_input:
-                matched_item = inv_item
-                break
-        
+
         # If we didn't find a match, return error immediately
         if not matched_item:
             return {

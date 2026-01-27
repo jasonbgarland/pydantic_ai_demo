@@ -2,7 +2,7 @@
 
 ## Location: cave_entrance
 
-## Connections: east=yawning_chasm, north=hidden_alcove
+## Connections: east=yawning_chasm, north=hidden_alcove, west=outside
 
 ## Items: magical_rope
 

@@ -28,11 +28,10 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
             "character": {
                 "name": "TestWizard",
                 "character_class": "wizard",
-                "stats": {"strength": 5, "magic": 18, "agility": 8, "health": 12, "stealth": 7},
                 "level": 1,
-                "hp": 12
+                "hp": 20
             },
-            "location": "dungeon_entrance"
+            "location": "cave_entrance"
         }
         mock_create_session.return_value = mock_session
 
@@ -45,12 +44,12 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["session"]["character"]["name"], "TestWizard")
         self.assertEqual(data["session"]["character"]["character_class"], "wizard")
 
-        # Verify create_session was called with proper character data
+        # Verify create_session was called with proper character data (classes are cosmetic)
         mock_create_session.assert_called_once()
         call_args = mock_create_session.call_args[0][0]  # First argument (character)
         self.assertEqual(call_args["name"], "TestWizard")
         self.assertEqual(call_args["character_class"], "wizard")
-        self.assertEqual(call_args["hp"], 12)  # HP should be set from wizard health stat
+        self.assertEqual(call_args["hp"], 20)  # HP is always 20 (no class differences)
 
     @patch('app.main.get_session')
     @patch('app.main.save_session')
@@ -129,26 +128,6 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["error"], "session_not_found")
-
-    async def test_character_classes_endpoint(self):
-        """Test character classes endpoint returns proper data."""
-        response = await self.client.get("/character/classes")
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertIn("classes", data)
-
-        classes = data["classes"]
-        self.assertIn("warrior", classes)
-        self.assertIn("wizard", classes)
-        self.assertIn("rogue", classes)
-
-        # Check warrior stats
-        warrior = classes["warrior"]
-        self.assertEqual(warrior["name"], "Warrior")
-        self.assertIn("description", warrior)
-        self.assertIn("stats", warrior)
-        self.assertEqual(warrior["stats"]["strength"], 15)
 
 
 if __name__ == "__main__":

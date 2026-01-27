@@ -91,25 +91,23 @@ class TestVictoryDefeatConditions(unittest.TestCase):
         self.assertEqual(session["game_status"], GameStatus.IN_PROGRESS)
         self.assertIsNone(session["defeat_reason"])
 
-    def test_check_victory_without_crystal(self):
-        """Test victory check without crystal."""
-        self.session["location"] = "cave_entrance"
+    def test_check_victory_when_in_progress(self):
+        """Test victory check returns False when game is in progress."""
+        self.session["game_status"] = GameStatus.IN_PROGRESS
         victory = check_victory_condition(self.session)
         self.assertFalse(victory)
 
-    def test_check_victory_with_crystal_wrong_location(self):
-        """Test victory check with crystal but wrong location."""
-        self.session["inventory"] = [{"id": "crystal"}]
-        self.session["location"] = "crystal_chamber"
-        victory = check_victory_condition(self.session)
-        self.assertFalse(victory)
-
-    def test_check_victory_success(self):
-        """Test successful victory condition."""
-        self.session["inventory"] = [{"id": "crystal"}]
-        self.session["location"] = "cave_entrance"
+    def test_check_victory_when_victory_set(self):
+        """Test victory check returns True when VICTORY status is set."""
+        self.session["game_status"] = GameStatus.VICTORY
         victory = check_victory_condition(self.session)
         self.assertTrue(victory)
+
+    def test_check_victory_when_defeat(self):
+        """Test victory check returns False when game is in defeat state."""
+        self.session["game_status"] = GameStatus.DEFEAT
+        victory = check_victory_condition(self.session)
+        self.assertFalse(victory)
 
     def test_check_defeat_health_zero(self):
         """Test defeat when health reaches zero."""
@@ -129,10 +127,9 @@ class TestVictoryDefeatConditions(unittest.TestCase):
         defeat_reason = check_defeat_conditions(self.session)
         self.assertIsNone(defeat_reason)
 
-    def test_update_game_status_victory(self):
-        """Test game status update on victory."""
-        self.session["inventory"] = [{"id": "crystal"}]
-        self.session["location"] = "cave_entrance"
+    def test_update_game_status_already_victory(self):
+        """Test game status update when VICTORY already set."""
+        self.session["game_status"] = GameStatus.VICTORY
         narrative = update_game_status(self.session)
         self.assertEqual(self.session["game_status"], GameStatus.VICTORY)
         self.assertIsNotNone(narrative)
