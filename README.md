@@ -142,9 +142,54 @@ graph TB
 
    ```bash
    cp .env.example .env
-   # Edit .env and add your OpenAI API key:
-   # OPENAI_API_KEY=sk-your-key-here
+   # Edit .env and add your LLM provider configuration
    ```
+
+   **Option A: Using OpenAI (Default)**
+
+   ```bash
+   # .env
+   LLM_PROVIDER=openai
+   OPENAI_API_KEY=sk-your-key-here
+   OPENAI_MODEL=gpt-4o-mini  # Default model
+   OPENAI_MODEL_FAST=gpt-4o-mini  # For quick tasks (intent parsing)
+   OPENAI_MODEL_POWERFUL=gpt-4o  # For complex reasoning (optional)
+   ```
+
+   **Option B: Using Google Vertex AI with Gemini**
+
+   ```bash
+   # .env
+   LLM_PROVIDER=google-vertex
+   GOOGLE_PROJECT=your-gcp-project-id
+   GOOGLE_LOCATION=us-central1  # GCP region
+   # Authentication: Use one of these methods:
+   # 1. API Key (simplest)
+   GOOGLE_API_KEY=your-api-key
+   # 2. Application Default Credentials (gcloud CLI)
+   #    Run: gcloud auth application-default login
+
+   # Model configuration (optional, defaults to Gemini Flash)
+   GOOGLE_MODEL=gemini-2.0-flash-exp  # Default model
+   GOOGLE_MODEL_FAST=gemini-2.0-flash-exp  # For quick tasks
+   GOOGLE_MODEL_POWERFUL=gemini-2.0-pro-exp  # For complex reasoning
+   ```
+
+   **Setting up Google Vertex AI:**
+   1. Create a GCP project at [console.cloud.google.com](https://console.cloud.google.com)
+   2. Enable the Vertex AI API
+   3. Choose authentication method:
+      - **API Key**: Create at [Vertex AI API Keys](https://cloud.google.com/vertex-ai/generative-ai/docs/start/api-keys)
+      - **gcloud CLI**: Install [gcloud CLI](https://cloud.google.com/sdk/gcloud) and run:
+        ```bash
+        gcloud auth application-default login
+        gcloud config set project your-gcp-project-id
+        ```
+   4. Install Google dependencies:
+      ```bash
+      cd backend
+      pip install 'pydantic-ai-slim[google]'
+      ```
 
 3. **Setup vector database (one-time):**
 
@@ -166,7 +211,7 @@ The application will be available at:
 - **Backend API**: http://localhost:8001 (FastAPI docs)
 - **ChromaDB**: http://localhost:8000 (Vector database)
 
-## 🧠 Vector Database Strategy
+## �🧠 Vector Database Strategy
 
 This project uses a **pre-generate and mount** approach for vector embeddings:
 

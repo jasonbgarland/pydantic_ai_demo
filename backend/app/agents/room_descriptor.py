@@ -1,11 +1,9 @@
 """Room Descriptor Agent - Specialist for room descriptions and environmental details."""
-import os
 from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 
 try:
     from pydantic_ai import Agent, RunContext
-    from pydantic_ai.models.openai import OpenAIModel
     PYDANTIC_AI_AVAILABLE = True
 except ImportError:
     # Fallback for testing or when PydanticAI is not available
@@ -17,6 +15,8 @@ from pydantic import BaseModel, Field
 
 # Import RAG tools
 from app.tools.rag_tools import query_world_lore, get_room_description as rag_get_room_description
+# Import model configuration
+from app.utils.model_config import get_llm_model
 
 # Load environment variables
 load_dotenv()
@@ -64,23 +64,26 @@ if PYDANTIC_AI_AVAILABLE:
         }
 
 
-# Only create the agent if PydanticAI is available and OpenAI API key is set
-if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
-    # Create the RoomDescriptor agent with OpenAI model from environment
-    model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-    ROOM_DESCRIPTOR_AGENT = Agent(
-        model=OpenAIModel(model_name),
-        output_type=str,
-        system_prompt=(
-            'You are a room description specialist for a text adventure game. '
-            'Generate rich, immersive descriptions of locations with vivid details '
-            'about atmosphere, lighting, objects, and notable features. '
-            'Keep descriptions concise but evocative, around 2-3 sentences. '
-            'Match the tone of classic text adventures like Zork.'
-        ),
-        deps_type=RoomContext,
-        tools=[get_room_features, check_room_connections],  # pylint: disable=possibly-used-before-assignment
-    )
+# Only create the agent if PydanticAI is available and API key is set
+if PYDANTIC_AI_AVAILABLE:
+    try:
+        # Create the RoomDescriptor agent with configured LLM model
+        ROOM_DESCRIPTOR_AGENT = Agent(
+            model=get_llm_model(model_type="default"),
+            output_type=str,
+            system_prompt=(
+                'You are a room description specialist for a text adventure game. '
+                'Generate rich, immersive descriptions of locations with vivid details '
+                'about atmosphere, lighting, objects, and notable features. '
+                'Keep descriptions concise but evocative, around 2-3 sentences. '
+                'Match the tone of classic text adventures like Zork.'
+            ),
+            deps_type=RoomContext,
+            tools=[get_room_features, check_room_connections],  # pylint: disable=possibly-used-before-assignment
+        )
+    except (ImportError, ValueError):
+        # Model configuration failed (missing API keys or packages)
+        ROOM_DESCRIPTOR_AGENT = None
 else:
     ROOM_DESCRIPTOR_AGENT = None
 

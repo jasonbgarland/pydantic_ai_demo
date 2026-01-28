@@ -11,6 +11,7 @@ from pydantic_ai import Agent
 from pydantic import BaseModel, Field
 
 from app.agents.command_models import CommandType, ParsedCommand
+from app.utils.model_config import get_model_name_string
 
 
 class IntentClassification(BaseModel):
@@ -75,7 +76,7 @@ Extract the core intent even if the phrasing is unusual."""
 def _create_intent_parser_agent() -> Agent[None, IntentClassification]:
     """Create the PydanticAI agent for intent parsing."""
     return Agent(
-        "openai:gpt-4o-mini",  # Fast and cheap for classification
+        get_model_name_string(model_type="fast"),  # Fast model for classification
         output_type=IntentClassification,
         system_prompt=SYSTEM_PROMPT,
     )

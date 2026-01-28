@@ -1,5 +1,4 @@
 """Inventory Manager Agent - Specialist for item interactions and inventory management."""
-import os
 import logging
 from typing import Dict, Any, List, Optional
 from dotenv import load_dotenv
@@ -8,7 +7,6 @@ from pydantic import BaseModel, Field
 
 try:
     from pydantic_ai import Agent, RunContext
-    from pydantic_ai.models.openai import OpenAIModel
     PYDANTIC_AI_AVAILABLE = True
 except ImportError:
     # Fallback for testing or when PydanticAI is not available
@@ -18,6 +16,7 @@ except ImportError:
 
 from ..tools.rag_tools import find_items_in_location
 from ..utils.name_utils import normalize_item_name, display_item_name
+from ..utils.model_config import get_llm_model
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -69,23 +68,26 @@ if PYDANTIC_AI_AVAILABLE:
         }
 
 
-# Only create the agent if PydanticAI is available and OpenAI API key is set
-if PYDANTIC_AI_AVAILABLE and os.getenv('OPENAI_API_KEY'):
-    # Create the InventoryManager agent with OpenAI model from environment
-    model_name = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
-    INVENTORY_AGENT = Agent(
-        model=OpenAIModel(model_name),
-        output_type=ItemAction,
-        system_prompt=(
-            'You are an inventory management specialist for a text adventure game. '
-            'Handle item interactions with realistic constraints and provide '
-            'engaging feedback for pickup, drop, and use actions. '
-            'Consider inventory limits, item availability, and game logic. '
-            'Generate responses that feel natural and immersive.'
-        ),
-        deps_type=InventoryContext,
-        tools=[check_item_availability, validate_inventory_space, get_item_properties],  # pylint: disable=possibly-used-before-assignment
-    )
+# Only create the agent if PydanticAI is available
+if PYDANTIC_AI_AVAILABLE:
+    try:
+        # Create the InventoryManager agent with configured LLM model
+        INVENTORY_AGENT = Agent(
+            model=get_llm_model(model_type="default"),
+            output_type=ItemAction,
+            system_prompt=(
+                'You are an inventory management specialist for a text adventure game. '
+                'Handle item interactions with realistic constraints and provide '
+                'engaging feedback for pickup, drop, and use actions. '
+                'Consider inventory limits, item availability, and game logic. '
+                'Generate responses that feel natural and immersive.'
+            ),
+            deps_type=InventoryContext,
+            tools=[check_item_availability, validate_inventory_space, get_item_properties],  # pylint: disable=possibly-used-before-assignment
+        )
+    except (ImportError, ValueError):
+        # Model configuration failed (missing API keys or packages)
+        INVENTORY_AGENT = None
 else:
     INVENTORY_AGENT = None
 

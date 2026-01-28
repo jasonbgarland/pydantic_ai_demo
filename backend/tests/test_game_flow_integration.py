@@ -36,7 +36,7 @@ class TestSessionManagement(unittest.TestCase):
 
         # Verify session data
         self.assertEqual(session["character"]["name"], "TestHero")
-        self.assertEqual(session["character"]["character_class"], "adventurer")
+        self.assertEqual(session["character"]["character_class"], "warrior")
         self.assertEqual(session["location"], "cave_entrance")
         self.assertEqual(len(session["inventory"]), 0)
         self.assertEqual(session["turn_count"], 0)
