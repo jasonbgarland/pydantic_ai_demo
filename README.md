@@ -70,7 +70,7 @@ graph TB
     end
 
     Player -->|Natural Language| IntentParser
-    IntentParser -->|ParsedCommand<br/>{type: pickup, target: crystal}| Narrator
+    IntentParser -->|ParsedCommand<br/>type: pickup, target: crystal| Narrator
     Narrator -->|Delegates| Room
     Narrator -->|Delegates| Inventory
     Room -->|query_world_lore| Tools
