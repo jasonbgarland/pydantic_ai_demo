@@ -1,8 +1,9 @@
 """Unit tests for game session management with mocked external dependencies."""
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from httpx import AsyncClient, ASGITransport
 
+from app.agents.adventure_narrator import GameResponse
 from app.main import app
 
 
@@ -51,9 +52,10 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(call_args["character_class"], "wizard")
         self.assertEqual(call_args["hp"], 20)  # HP is always 20 (no class differences)
 
+    @patch('app.main.adventure_narrator')
     @patch('app.main.get_session')
     @patch('app.main.save_session')
-    async def test_process_command_increments_turn_and_saves(self, mock_save_session, mock_get_session):
+    async def test_process_command_increments_turn_and_saves(self, mock_save_session, mock_get_session, mock_narrator):
         """Test that processing commands increments turn count and saves session."""
         # Mock existing session
         mock_session = {
@@ -64,6 +66,9 @@ class TestSessionsUnit(unittest.IsolatedAsyncioTestCase):
         }
         mock_get_session.return_value = mock_session
         mock_save_session.return_value = None
+        mock_narrator.parse_command = AsyncMock(return_value=object())
+        mock_narrator.handle_command = AsyncMock(return_value=GameResponse(
+            agent="room_descriptor", narrative="You see a dark cave."))
 
         response = await self.client.post("/game/test-game-123/command",
                                         json={"command": "look"})

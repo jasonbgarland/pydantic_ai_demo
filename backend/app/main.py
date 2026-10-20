@@ -305,11 +305,13 @@ async def process_command(game_id: str, command: GameCommand):
         # Fallback for any processing errors
         error_response = f"Error processing command '{command.command}': {str(exc)}"
 
-        await save_session(game_id, session)
+        session = await get_session(game_id)
+        if session:
+            await save_session(game_id, session)
 
         return {
             "game_id": game_id,
-            "turn": session["turn_count"],
+            "turn": session.get("turn_count", 0) if session else 0,
             "response": error_response,
             "agent": "system",
             "success": False,
